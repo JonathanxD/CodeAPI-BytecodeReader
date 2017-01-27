@@ -1,0 +1,6 @@
+[submodule "CodeAPI"]
+	path = CodeAPI
+	url = https://github.com/JonathanxD/CodeAPI.git
+[submodule "CodeAPI-BytecodeCommon"]
+	path = CodeAPI-BytecodeCommon
+	url = https://github.com/JonathanxD/CodeAPI-BytecodeCommon.git
