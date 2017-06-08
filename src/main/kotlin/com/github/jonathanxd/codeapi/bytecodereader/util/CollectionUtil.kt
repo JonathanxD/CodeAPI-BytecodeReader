@@ -25,12 +25,61 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.util
+@file:JvmName("CollectionUtil")
 
-import com.github.jonathanxd.codeapi.generic.GenericSignature
-import com.github.jonathanxd.codeapi.type.GenericType
+package com.github.jonathanxd.codeapi.bytecodereader.util
 
-class Signature(val signature: GenericSignature, val superType: GenericType?, interfaces: Array<GenericType>) {
-    val interfaces: Array<GenericType> = interfaces
-        get() = field.clone()
+inline fun <T> List<T>.filterWithIndex(predicate: (T) -> Boolean): MutableList<Pair<Int, T>> {
+    return this.filterIndexedAndMap({ _, t -> predicate(t) }, { i, t -> Pair(i, t) })
+}
+
+inline fun <T> List<T>.filterWithIndex(predicate: (Int, T) -> Boolean): MutableList<Pair<Int, T>> {
+    return this.filterIndexedAndMap(predicate, { i, t -> Pair(i, t) })
+}
+
+fun <T> remove(list: MutableList<T>, indices: IntArray) {
+    val iterator = list.iterator()
+    var i = 0
+
+    while (iterator.hasNext()) {
+        iterator.next()
+        for (index in indices) {
+            if (index == i) {
+                iterator.remove()
+                break
+            }
+        }
+
+        ++i
+    }
+}
+
+inline fun <T, R> List<T>.filterIndexedAndMap(filter: (Int, T) -> Boolean, mapper: (Int, T) -> R): MutableList<R> {
+    val list = mutableListOf<R>()
+
+    for (i in this.indices) {
+        val get = this[i]
+        if (filter(i, get))
+            list.add(mapper(i, get))
+    }
+
+    return list
+}
+
+inline fun <T> Array<T>.nextMatch(pos: Int, predicate: (T) -> Boolean): T? {
+    var i = pos
+
+    while (i < this.size && !predicate(this[i]))
+        ++i
+
+    return if (i < this.size) this[i] else null
+}
+
+inline fun <T> Array<T>.nextNodeMatch(pos: Int, predicate: (T) -> Boolean): Pair<Int, T>? {
+    var i = pos
+
+    while (i < this.size && !predicate(this[i]))
+        ++i
+
+    return if (i < this.size) Pair(i, this[i]) else null
 }

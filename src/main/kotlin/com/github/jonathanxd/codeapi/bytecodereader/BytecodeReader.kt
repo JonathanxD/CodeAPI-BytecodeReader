@@ -25,24 +25,22 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.util
+package com.github.jonathanxd.codeapi.bytecodereader
 
-/**
- * Unsafe treat **this** [Iterable] as [Iterable] of [U]
- */
-@Suppress("UNCHECKED_CAST")
-inline fun <U> Iterable<*>.unsafeForEach(func: (U) -> Unit) {
-    (this as Sequence<U>).forEach(func)
+import com.github.jonathanxd.codeapi.CodePart
+import com.github.jonathanxd.codeapi.base.TypeDeclaration
+import com.github.jonathanxd.codeapi.bytecodereader.asm.ClassAnalyzer
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.tree.ClassNode
+
+class BytecodeReader {
+
+    fun read(byteArray: ByteArray): TypeDeclaration {
+        val reader = ClassReader(byteArray)
+        val cn = ClassNode()
+        reader.accept(cn, 0)
+
+        return ClassAnalyzer.analyze(cn)
+    }
+
 }
-
-/**
- * Cast the elements of **this** [Iterable] to [U].
- */
-@Suppress("UNCHECKED_CAST")
-inline fun <reified U> Iterable<*>.mapAs() = this.map { it as U }
-
-/**
-* Foreach elements of this [Iterable] as [U]
-*/
-@Suppress("UNCHECKED_CAST")
-inline fun <reified U> Iterable<*>.forEachAs(func: (U) -> Unit) = this.mapAs<U>().forEach(func)

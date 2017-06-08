@@ -25,27 +25,30 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.util
+package com.github.jonathanxd.codeapi.bytecodereader.util
 
-import com.github.jonathanxd.codeapi.CodeAPI
-import com.github.jonathanxd.codeapi.CodePart
+import com.github.jonathanxd.codeapi.CodeInstruction
 import com.github.jonathanxd.codeapi.Types
-import com.github.jonathanxd.codeapi.base.TypeDeclaration
-import com.github.jonathanxd.codeapi.base.impl.OperateImpl
-import com.github.jonathanxd.codeapi.common.*
+import com.github.jonathanxd.codeapi.base.*
+import com.github.jonathanxd.codeapi.common.MethodInvokeSpec
+import com.github.jonathanxd.codeapi.common.MethodTypeSpec
+import com.github.jonathanxd.codeapi.common.Void
+import com.github.jonathanxd.codeapi.factory.cast
+import com.github.jonathanxd.codeapi.factory.returnValue
 import com.github.jonathanxd.codeapi.helper.OperateHelper
 import com.github.jonathanxd.codeapi.literal.Literal
 import com.github.jonathanxd.codeapi.literal.Literals
 import com.github.jonathanxd.codeapi.operator.Operator
 import com.github.jonathanxd.codeapi.operator.Operators
 import com.github.jonathanxd.codeapi.type.CodeType
-import com.github.jonathanxd.codeapi.util.CodePartUtil
-import com.github.jonathanxd.codeapi.util.DescriptionHelper
-import com.github.jonathanxd.codeapi.util.TypeResolver
+import com.github.jonathanxd.codeapi.type.TypeRef
+import com.github.jonathanxd.codeapi.util.*
 import com.github.jonathanxd.iutils.description.DescriptionUtil
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
+
+typealias ReflectType = java.lang.reflect.Type
 
 object Conversions : Opcodes {
 
@@ -79,17 +82,17 @@ object Conversions : Opcodes {
         }
     }
 
-    fun handleReturn(opcode: Int, input: CodePart?): CodePart {
+    fun handleReturn(opcode: Int, input: CodeInstruction?): CodeInstruction {
 
         if (opcode == Opcodes.RETURN)
         // No computation is needed for void return.
-            return CodeAPI.returnValue(Types.VOID, null)
+            return returnValue(Types.VOID, Void)
 
         // Note that Java bytecode cover a limited set of types, is better to CodeAPI infer the types
         // Example, types like Boolean, Character, Short, etc... is covered by IRETURN
         // and CodeAPI works better with the original types (CodeAPI don't like if you
         // return a boolean value using INT type like: CodeAPI.returnValue(Types.INT, Literals.FALSE)).
-        var type: CodeType? = if (input != null) CodePartUtil.getTypeOrNull(input) else null
+        var type: ReflectType? = input?.typeOrNull
 
         if (type == null) {
             when (opcode) {
@@ -114,15 +117,15 @@ object Conversions : Opcodes {
                 }
 
                 else -> {
-                    throw IllegalArgumentException("Cannot handle return opcode: '$opcode'")
+                    throw IllegalArgumentException("Cannot handle return opcode: '${opcode.opcodeName}'")
                 }
             }
         }
 
-        return CodeAPI.returnValue(type, input)
+        return returnValue(type, input ?: throw IllegalArgumentException("Missing return value for ${opcode.opcodeName}"))
     }
 
-    fun handleMathAndBitwise(opcode: Int, input1: CodePart, input2: CodePart): CodePart {
+    fun handleMathAndBitwise(opcode: Int, input1: CodeInstruction, input2: CodeInstruction): CodeInstruction {
         val operation: Operator.Math
 
         if (opcode >= Opcodes.IADD && opcode <= Opcodes.DADD) {
@@ -151,16 +154,16 @@ object Conversions : Opcodes {
             throw IllegalArgumentException("Cannot handle math or bitwise opcode: '$opcode'")
         }
 
-        return OperateImpl(input1, operation, input2)
+        return Operate(input1, operation, input2)
     }
 
-    fun handleNegation(opcode: Int, input: CodePart): CodePart {
+    fun handleNegation(opcode: Int, input: CodeInstruction): CodeInstruction {
         return OperateHelper.builder(input)
                 .neg()
                 .build()
     }
 
-    fun handleConversion(opcode: Int, input: CodePart): CodePart {
+    fun handleConversion(opcode: Int, input: CodeInstruction): CodeInstruction {
         val from: CodeType
         val to: CodeType
 
@@ -230,7 +233,7 @@ object Conversions : Opcodes {
             }
         }
 
-        return CodeAPI.cast(from, to, input)
+        return cast(from, to, input)
     }
 
     /**
@@ -245,8 +248,7 @@ object Conversions : Opcodes {
             Opcodes.INVOKESPECIAL -> return InvokeType.INVOKE_SPECIAL
             Opcodes.INVOKEVIRTUAL -> return InvokeType.INVOKE_VIRTUAL
             Opcodes.INVOKESTATIC -> return InvokeType.INVOKE_STATIC
-            Opcodes.INVOKEDYNAMIC -> return InvokeType.INVOKE_DYNAMIC
-            else -> throw RuntimeException("Cannot determine InvokeType of opcde '$opcode'")
+            else -> throw RuntimeException("Cannot determine InvokeType of opcode '${opcode.opcodeName}'")
         }
     }
 
@@ -262,14 +264,14 @@ object Conversions : Opcodes {
             Opcodes.H_INVOKESPECIAL -> return InvokeType.INVOKE_SPECIAL
             Opcodes.H_INVOKEVIRTUAL -> return InvokeType.INVOKE_VIRTUAL
             Opcodes.H_INVOKESTATIC -> return InvokeType.INVOKE_STATIC
-            else -> throw RuntimeException("Cannot determine InvokeType of opcode '$opcode'")
+            else -> throw RuntimeException("Cannot determine InvokeType of opcode '${opcode.opcodeName}'")
         }
     }
 
 
     @Suppress("NAME_SHADOWING")
-    fun typeSpecFromDesc(resolver: TypeResolver, typeDeclaration: TypeDeclaration, methodName: String, desc: String): TypeSpec {
-        val desc = "${typeDeclaration.javaSpecName}:$methodName$desc"
+    fun typeSpecFromDesc(resolver: TypeResolver, typeDeclarationRef: TypeRef, methodName: String, desc: String): TypeSpec {
+        val desc = "${typeDeclarationRef.javaSpecName}:$methodName$desc"
 
         val parameterTypes = DescriptionUtil.getParameterTypes(desc)
         val returnType = DescriptionUtil.getType(desc)
@@ -293,27 +295,26 @@ object Conversions : Opcodes {
                         localization = owner,
                         methodName = handle.name,
                         typeSpec = TypeSpec(
-                                returnType = typeResolver.resolveUnknown(description.returnType),
+                                returnType = typeResolver.resolveUnknown(description.type),
                                 parameterTypes = description.parameterTypes.map { typeResolver.resolveUnknown(it) }
                         )
                 )
         )
     }
 
-    fun fromHandle(handle: Handle, args: Array<Any>, typeResolver: TypeResolver): InvokeDynamic {
+    fun fromHandle(handle: Handle, args: Array<Any>, invocation: MethodInvocation, typeResolver: TypeResolver): InvokeDynamic {
         val invokeType = fromAsm_H(handle.tag)
         val fullMethodSpec = specFromHandle(handle, typeResolver)
 
-        return InvokeDynamic.Bootstrap(
-                methodTypeSpec = fullMethodSpec.methodTypeSpec,
-                invokeType = invokeType,
-                arguments = bsmArgsFromAsm(args, typeResolver)
-        )
+        return InvokeDynamic(type = Types.OBJECT, // TODO: Resolve return type
+                bootstrap = fullMethodSpec,
+                invocation = invocation,
+                args = bsmArgsFromAsm(args, typeResolver))
     }
 
-    fun bsmArgsFromAsm(asmArgs: Array<Any>?, typeResolver: TypeResolver): Array<Any> {
+    fun bsmArgsFromAsm(asmArgs: Array<Any>?, typeResolver: TypeResolver): List<Any> {
         if (asmArgs == null || asmArgs.isEmpty())
-            return emptyArray()
+            return emptyList()
 
         val codeAPIArgsList = mutableListOf<Any>()
 
@@ -344,7 +345,7 @@ object Conversions : Opcodes {
             }
         }
 
-        return codeAPIArgsList.toTypedArray()
+        return codeAPIArgsList
     }
 
 }

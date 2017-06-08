@@ -25,24 +25,20 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.util.asm
+package com.github.jonathanxd.codeapi.bytecodereader.extra
 
-import com.github.jonathanxd.codeapi.Types
-import com.github.jonathanxd.codeapi.type.CodeType
-import org.objectweb.asm.Opcodes
+import com.github.jonathanxd.codeapi.CodeInstruction
+import com.github.jonathanxd.codeapi.base.Named
 
-object ArrayUtil {
-    fun getArrayType(opcode: Int): CodeType {
-        when (opcode) {
-            Opcodes.T_BYTE -> return Types.CHAR
-            Opcodes.T_BOOLEAN -> return Types.BOOLEAN
-            Opcodes.T_CHAR -> return Types.CHAR
-            Opcodes.T_DOUBLE -> return Types.DOUBLE
-            Opcodes.T_FLOAT -> return Types.FLOAT
-            Opcodes.T_INT -> return Types.INT
-            Opcodes.T_LONG -> return Types.LONG
-            Opcodes.T_SHORT -> return Types.SHORT
-            else -> throw IllegalArgumentException("Cannot get type of array type opcode '$opcode'!")
-        }
+class UnknownPart(val str: String) : Named, CodeInstruction {
+    override val name: String
+        get() = "/* UnknownPart[$str] */"
+
+    override fun toString(): String {
+        return "UnknownPart[$str]"
+    }
+
+    override fun builder(): Named.Builder<UnknownPart, *> {
+        TODO("not implemented")
     }
 }

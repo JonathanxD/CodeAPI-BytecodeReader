@@ -25,44 +25,38 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-@file:JvmName("CollectionUtil")
-package com.github.jonathanxd.bytecodereader.util
+package com.github.jonathanxd.codeapi.bytecodereader.asm
 
-import com.github.jonathanxd.iutils.`object`.IntNode
+import com.github.jonathanxd.codeapi.CodeInstruction
+import com.github.jonathanxd.codeapi.base.FieldDeclaration
+import com.github.jonathanxd.codeapi.bytecodereader.env.Environment
+import com.github.jonathanxd.codeapi.bytecodereader.util.Conversions
+import com.github.jonathanxd.codeapi.bytecodereader.util.GenericUtil
+import com.github.jonathanxd.codeapi.bytecodereader.util.asm.ModifierUtil
+import com.github.jonathanxd.codeapi.common.CodeNothing
+import org.objectweb.asm.tree.FieldNode
+import java.util.EnumSet
 
-inline fun <T> List<T>.filterWithIndex(predicate: (T) -> Boolean): MutableList<IntNode<T>> {
-    return this.filterIndexedAndMap({ _, t -> predicate(t) }, { i, t -> IntNode(i, t) })
-}
+object FieldAnalyzer {
+    @Suppress("UNCHECKED_CAST")
+    fun analyze(fieldNode: FieldNode, environment: Environment): FieldDeclaration {
+        val codeModifiers = ModifierUtil.fromAccess(ModifierUtil.FIELD, fieldNode.access)
 
-inline fun <T> List<T>.filterWithIndex(predicate: (Int, T) -> Boolean): MutableList<IntNode<T>> {
-    return this.filterIndexedAndMap(predicate, { i, t -> IntNode(i, t) })
-}
+        var type = environment.resolveUnknown(fieldNode.desc)
 
-fun <T> remove(list: MutableList<T>, indices: IntArray) {
-    val iterator = list.iterator()
-    var i = 0
+        val valuePart: CodeInstruction = fieldNode.value?.let { Conversions.toLiteral(it) } ?: CodeNothing
 
-    while (iterator.hasNext()) {
-        iterator.next()
-        for (index in indices) {
-            if (index == i) {
-                iterator.remove()
-                break
-            }
-        }
+        val genericSignature = GenericUtil.parse(environment, fieldNode.signature)
 
-        ++i
+        if (genericSignature != null && genericSignature.types.size == 1)
+            type = genericSignature.types[0]
+
+        return FieldDeclaration.Builder.builder()
+                .modifiers(EnumSet.copyOf(codeModifiers))
+                .type(type)
+                .name(fieldNode.name)
+                .value(valuePart)
+                .build()
+
     }
-}
-
-inline fun <T, R> List<T>.filterIndexedAndMap(filter: (Int, T) -> Boolean, mapper: (Int, T) -> R): MutableList<R> {
-    val list = mutableListOf<R>()
-
-    for (i in this.indices) {
-        val get = this[i]
-        if (filter(i, get))
-            list.add(mapper(i, get))
-    }
-
-    return list
 }

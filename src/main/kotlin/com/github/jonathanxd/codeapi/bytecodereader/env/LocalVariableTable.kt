@@ -25,18 +25,58 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.util.asm
+package com.github.jonathanxd.codeapi.bytecodereader.env
 
-data class Countdown(var count: Int) {
+import com.github.jonathanxd.codeapi.CodeInstruction
+import com.github.jonathanxd.codeapi.util.`is`
+import java.lang.reflect.Type
+import java.util.*
 
-    fun countdown(): Boolean {
-        val finished = finished()
+class LocalVariableTable {
 
-        if (!finished)
-            --count
+    private val table = HashMap<Int, CodeInstruction>()
+    private val variableTable = HashMap<Int, VariableInfo>()
 
-        return finished
+    fun store(part: CodeInstruction, index: Int) {
+        this.table.put(index, part)
     }
 
-    fun finished() = count <= 0
+    fun getOrNull(index: Int): CodeInstruction? {
+        return this.table[index]
+    }
+
+    operator fun get(index: Int): CodeInstruction {
+        if (!this.table.containsKey(index))
+            throw NoSuchElementException("The slot '$index' is empty.")
+
+        return this.table[index]!!
+    }
+
+    fun containsSlot(slot: Int): Boolean {
+        return this.table.containsKey(slot)
+    }
+
+
+    fun storeVariableInfo(slot: Int, variableType: Type, variableName: String) {
+        this.variableTable.put(slot, VariableInfo(variableType, variableName))
+    }
+
+    fun getInfo(slot: Int): VariableInfo? {
+        return this.variableTable[slot]
+    }
+
+    inner class VariableInfo internal constructor(val type: Type, val name: String) {
+
+        override fun equals(other: Any?): Boolean {
+            if (other == null || other !is VariableInfo)
+                return super.equals(other)
+
+            return this.name == other.name && this.type.`is`(other.type)
+        }
+
+        override fun hashCode(): Int {
+            return Objects.hash(this.name, this.type)
+        }
+    }
+
 }

@@ -25,7 +25,19 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader
+package com.github.jonathanxd.codeapi.bytecodereader.util.asm
 
-class BytecodeReader {
+import com.github.jonathanxd.codeapi.operator.Operator
+import com.github.jonathanxd.codeapi.operator.Operators
+
+fun Operator.Conditional.inverse(): Operator.Conditional {
+    return when(this) {
+        Operators.EQUAL_TO -> Operators.NOT_EQUAL_TO
+        Operators.NOT_EQUAL_TO -> Operators.EQUAL_TO
+        Operators.LESS_THAN -> Operators.GREATER_THAN_OR_EQUAL_TO
+        Operators.LESS_THAN_OR_EQUAL_TO -> Operators.GREATER_THAN
+        Operators.GREATER_THAN -> Operators.GREATER_THAN_OR_EQUAL_TO
+        Operators.GREATER_THAN_OR_EQUAL_TO -> Operators.LESS_THAN
+        else -> throw IllegalArgumentException("Cannot get inverse operator of $this")
+    }
 }

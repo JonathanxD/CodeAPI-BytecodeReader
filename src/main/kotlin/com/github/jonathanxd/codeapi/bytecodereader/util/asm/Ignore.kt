@@ -25,12 +25,16 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.extra
+package com.github.jonathanxd.codeapi.bytecodereader.util.asm
 
-import com.github.jonathanxd.codeapi.CodePart
+import java.util.*
 
-class UnknownPart(val str: String) : CodePart {
-    override fun toString(): String {
-        return "UnknownPart[$str]"
+data class Ignore(val indexes: IntArray) {
+    override fun hashCode(): Int {
+        return Arrays.hashCode(indexes)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        return if (other is Ignore) Arrays.equals(this.indexes, other.indexes) else false
     }
 }

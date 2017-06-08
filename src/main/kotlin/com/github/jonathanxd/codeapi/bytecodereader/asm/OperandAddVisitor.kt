@@ -25,20 +25,20 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.codeapi.read.bytecode.asm
+package com.github.jonathanxd.codeapi.bytecodereader.asm
 
-import com.github.jonathanxd.codeapi.common.MVData
-import com.github.jonathanxd.codeapi.gen.visit.bytecode.visitor.InstructionCodePart
-import com.github.jonathanxd.codeapi.read.bytecode.StackManager
+import com.github.jonathanxd.codeapi.CodeInstruction
+import com.github.jonathanxd.codeapi.bytecodereader.env.StackManager
+import com.github.jonathanxd.codeapi.bytecodereader.extra.UnknownPart
 import org.objectweb.asm.*
 
-internal class OperandAddVisitor(val stackManager: StackManager,
-                        api: Int = Opcodes.ASM5,
-                        methodVisitor: MethodVisitor? = null) : MethodVisitor(api, methodVisitor) {
+internal class OperandAddVisitor(val stackManager: StackManager<CodeInstruction>,
+                                 api: Int = Opcodes.ASM5,
+                                 methodVisitor: MethodVisitor? = null) : MethodVisitor(api, methodVisitor) {
 
     override fun visitMultiANewArrayInsn(desc: String?, dims: Int) {
         super.visitMultiANewArrayInsn(desc, dims)
-        this.push { visitMultiANewArrayInsn(desc, dims) }
+        this.push("visitMultiANewArrayInsn[desc=$desc, dims=$dims]")
     }
 
     override fun visitFrame(type: Int, nLocal: Int, local: Array<out Any>?, nStack: Int, stack: Array<out Any>?) {
@@ -47,37 +47,37 @@ internal class OperandAddVisitor(val stackManager: StackManager,
 
     override fun visitVarInsn(opcode: Int, `var`: Int) {
         super.visitVarInsn(opcode, `var`)
-        this.push { visitVarInsn(opcode, `var`) }
+        this.push("visitVarInsn[opcode=$opcode, var=$`var`]")
     }
 
     override fun visitTryCatchBlock(start: Label?, end: Label?, handler: Label?, type: String?) {
         super.visitTryCatchBlock(start, end, handler, type)
-        this.push { visitTryCatchBlock(start, end, handler, type) }
+        this.push("visitTryCatchBlock[start=$start, end=$end, handler=$handler, type=$type]")
     }
 
     override fun visitLookupSwitchInsn(dflt: Label?, keys: IntArray?, labels: Array<out Label>?) {
         super.visitLookupSwitchInsn(dflt, keys, labels)
-        this.push { visitLookupSwitchInsn(dflt, keys, labels) }
+        this.push("visitLookupSwitchInsn[dflt=$dflt, keys=${java.util.Arrays.toString(keys)}, labels=${java.util.Arrays.toString(labels)}]")
     }
 
     override fun visitJumpInsn(opcode: Int, label: Label?) {
         super.visitJumpInsn(opcode, label)
-        this.push { visitJumpInsn(opcode, label) }
+        this.push("visitJumpInsn[opcode=$opcode, label=$label]")
     }
 
     override fun visitLdcInsn(cst: Any?) {
         super.visitLdcInsn(cst)
-        this.push { visitLdcInsn(cst) }
+        this.push("ldc[cst=$cst]")
     }
 
     override fun visitIntInsn(opcode: Int, operand: Int) {
         super.visitIntInsn(opcode, operand)
-        this.push { visitIntInsn(opcode, operand) }
+        this.push("visitIntInsn[opcode=$opcode, operand=$operand]")
     }
 
     override fun visitTypeInsn(opcode: Int, type: String?) {
         super.visitTypeInsn(opcode, type)
-        this.push { visitTypeInsn(opcode, type) }
+        this.push("visitTypeInsn[opcode=$opcode, type=$type]")
     }
 
     override fun visitAnnotationDefault(): AnnotationVisitor {
@@ -98,12 +98,12 @@ internal class OperandAddVisitor(val stackManager: StackManager,
 
     override fun visitInvokeDynamicInsn(name: String?, desc: String?, bsm: Handle?, vararg bsmArgs: Any?) {
         super.visitInvokeDynamicInsn(name, desc, bsm, *bsmArgs)
-        this.push { visitInvokeDynamicInsn(name, desc, bsm, *bsmArgs) }
+        this.push("visitInvokeDynamicInsn[name=$name, desc=$desc, bsm=$bsm, bsmArgs=${java.util.Arrays.toString(bsmArgs)}]")
     }
 
     override fun visitLabel(label: Label?) {
         super.visitLabel(label)
-        this.push { visitLabel(label) }
+        //this.push("visitLabel[label=$label]")
     }
 
     override fun visitTryCatchAnnotation(typeRef: Int, typePath: TypePath?, desc: String?, visible: Boolean): AnnotationVisitor {
@@ -112,17 +112,18 @@ internal class OperandAddVisitor(val stackManager: StackManager,
 
     override fun visitMethodInsn(opcode: Int, owner: String?, name: String?, desc: String?) {
         super.visitMethodInsn(opcode, owner, name, desc)
-        this.push { visitMethodInsn(opcode, owner, name, desc) }
+        this.push("visitMethodInsn[opcode=$opcode, owner=$owner, name=$name, desc=$desc]")
     }
 
     override fun visitMethodInsn(opcode: Int, owner: String?, name: String?, desc: String?, itf: Boolean) {
         super.visitMethodInsn(opcode, owner, name, desc, itf)
-        this.push { visitMethodInsn(opcode, owner, name, desc, itf) }
+        this.push("visitMethodInsn[opcode=$opcode, owner=$owner, name=$name, desc=$desc, itf=$itf]")
     }
 
     override fun visitInsn(opcode: Int) {
         super.visitInsn(opcode)
-        this.push { visitInsn(opcode) }
+        if (opcode != Opcodes.NOP)
+            this.push("visitInsn[opcode=$opcode]")
     }
 
     override fun visitInsnAnnotation(typeRef: Int, typePath: TypePath?, desc: String?, visible: Boolean): AnnotationVisitor {
@@ -135,12 +136,12 @@ internal class OperandAddVisitor(val stackManager: StackManager,
 
     override fun visitIincInsn(`var`: Int, increment: Int) {
         super.visitIincInsn(`var`, increment)
-        this.push { visitIincInsn(`var`, increment) }
+        this.push("visitIincInsn[var=$`var`, increment=$increment]")
     }
 
     override fun visitLineNumber(line: Int, start: Label?) {
         super.visitLineNumber(line, start)
-        this.push { visitLineNumber(line, start) }
+        //this.push("visitLineNumber[line=$`line`, start=$start]")
     }
 
     override fun visitLocalVariableAnnotation(typeRef: Int, typePath: TypePath?, start: Array<out Label>?, end: Array<out Label>?, index: IntArray?, desc: String?, visible: Boolean): AnnotationVisitor {
@@ -149,7 +150,7 @@ internal class OperandAddVisitor(val stackManager: StackManager,
 
     override fun visitTableSwitchInsn(min: Int, max: Int, dflt: Label?, vararg labels: Label?) {
         super.visitTableSwitchInsn(min, max, dflt, *labels)
-        this.push { visitTableSwitchInsn(min, max, dflt, *labels) }
+        this.push("visitTableSwitchInsn[min=$min, max=$max, dlft=$dflt, labels=${java.util.Arrays.toString(labels)}]")
     }
 
     override fun visitEnd() {
@@ -158,33 +159,30 @@ internal class OperandAddVisitor(val stackManager: StackManager,
 
     override fun visitLocalVariable(name: String?, desc: String?, signature: String?, start: Label?, end: Label?, index: Int) {
         super.visitLocalVariable(name, desc, signature, start, end, index)
-        this.push { visitLocalVariable(name, desc, signature, start, end, index) }
+        this.push("visitLocalVariable[name=$name, desc=$desc, start=$start, end=$end, index=$index]")
     }
 
     override fun visitParameter(name: String?, access: Int) {
         super.visitParameter(name, access)
-        this.push { visitParameter(name, access) }
+        this.push("visitParameter[name=$name, access=$access]")
     }
 
     override fun visitAttribute(attr: Attribute?) {
         super.visitAttribute(attr)
-        this.push { visitAttribute(attr) }
+        this.push("visitAttribute[attr=$attr]")
     }
 
     override fun visitFieldInsn(opcode: Int, owner: String?, name: String?, desc: String?) {
         super.visitFieldInsn(opcode, owner, name, desc)
-        this.push { visitFieldInsn(opcode, owner, name, desc) }
+        this.push("visitFieldInsn[opcode=$opcode, owner=$owner, name=$name, desc=$desc]")
     }
 
     override fun visitCode() {
         super.visitCode()
     }
 
-    private fun push(visitorConsumer: MethodVisitor.() -> Unit) {
-        this.stackManager.push(createInstruction(visitorConsumer))
+    private fun push(str: String) {
+        this.stackManager.push(UnknownPart(str))
     }
 
-    private fun createInstruction(visitorConsumer: (MethodVisitor) -> Unit): InstructionCodePart {
-        return InstructionCodePart { value, extraData, visitorGenerator, additional -> visitorConsumer((additional as MVData).methodVisitor) }
-    }
 }

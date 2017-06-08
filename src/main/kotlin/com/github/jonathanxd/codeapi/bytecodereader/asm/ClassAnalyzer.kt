@@ -25,25 +25,26 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.asm
+package com.github.jonathanxd.codeapi.bytecodereader.asm
 
-import com.github.jonathanxd.bytecodereader.env.Environment
-import com.github.jonathanxd.bytecodereader.util.GenericUtil
-import com.github.jonathanxd.bytecodereader.util.asm.ModifierUtil
-import com.github.jonathanxd.bytecodereader.util.forEachAs
-import com.github.jonathanxd.codeapi.MutableCodeSource
-import com.github.jonathanxd.codeapi.base.TypeDeclaration
-import com.github.jonathanxd.codeapi.builder.ClassDeclarationBuilder
-import com.github.jonathanxd.codeapi.builder.InterfaceDeclarationBuilder
-import com.github.jonathanxd.codeapi.read.bytecode.asm.MethodAnalyzer
-import com.github.jonathanxd.codeapi.type.CodeType
+import com.github.jonathanxd.codeapi.CodeSource
+import com.github.jonathanxd.codeapi.base.*
+import com.github.jonathanxd.codeapi.base.comment.Comments
+import com.github.jonathanxd.codeapi.bytecodereader.env.Environment
+import com.github.jonathanxd.codeapi.bytecodereader.util.GenericUtil
+import com.github.jonathanxd.codeapi.bytecodereader.util.asm.ModifierUtil
+import com.github.jonathanxd.codeapi.bytecodereader.util.forEachAs
 import com.github.jonathanxd.codeapi.type.GenericType
+import com.github.jonathanxd.codeapi.type.TypeRef
+import com.github.jonathanxd.codeapi.util.canonicalName
+import com.github.jonathanxd.codeapi.util.codeType
+import com.github.jonathanxd.codeapi.util.genericTypesToDescriptor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
-import java.util.*
-import com.github.jonathanxd.codeapi.bytecodecommon.GenericUtil as CommonGenericUtil
+import java.lang.reflect.Type
+import java.util.EnumSet
 
 object ClassAnalyzer {
 
@@ -70,48 +71,61 @@ object ClassAnalyzer {
         if (signature.interfaces.isNotEmpty())
             interfaces = signature.interfaces.toList()
 
-        val body = MutableCodeSource()
-        val declaration: TypeDeclaration
+        val innerTypes = mutableListOf<TypeDeclaration>()
+        val fields = mutableListOf<FieldDeclaration>()
+        val constructors = mutableListOf<ConstructorDeclaration>()
+        val methods = mutableListOf<MethodDeclaration>()
+        var staticBlock: StaticBlock = StaticBlock(Comments.Absent, emptyList(), CodeSource.empty())
 
-        if (isInterface) {
-            declaration = InterfaceDeclarationBuilder.builder()
-                    .withModifiers(EnumSet.copyOf(modifiers))
-                    .withQualifiedName(type.canonicalName)
-                    .withImplementations(interfaces)
-                    .withGenericSignature(genericSignature)
-                    .withBody(body)
-                    .build()
-        } else {
-            declaration = ClassDeclarationBuilder.builder()
-                    .withModifiers(EnumSet.copyOf(modifiers))
-                    .withQualifiedName(type.canonicalName)
-                    .withSuperClass(superClass)
-                    .withImplementations(interfaces)
-                    .withGenericSignature(genericSignature)
-                    .withBody(body)
-                    .build()
-        }
+        val ref = TypeRef(type.canonicalName, isInterface)
 
-        checkSignature(classNode.signature, declaration, superClass, interfaces)
-
-        environment.data.registerData(TYPE_DECLARATION, declaration)
+        TYPE_DECLARATION_REF.set(environment.data, ref)
 
         classNode.methods?.forEachAs { it: MethodNode ->
-            body.add(MethodAnalyzer.analyze(it, environment))
+            val analyze = MethodAnalyzer.analyze(it, environment)
+
+            when (analyze) {
+                is ConstructorDeclaration -> constructors += analyze
+                is MethodDeclaration -> methods += analyze
+                else -> staticBlock = analyze as StaticBlock
+            }
         }
 
         classNode.fields?.forEachAs { it: FieldNode ->
-            body.add(FieldAnalyzer.analyze(it, environment))
+            fields += FieldAnalyzer.analyze(it, environment)
         }
+
+        val builder: TypeDeclaration.Builder<TypeDeclaration, *> = if (isInterface) {
+            InterfaceDeclaration.Builder.builder()
+                    .implementations(interfaces)
+        } else {
+            ClassDeclaration.Builder.builder()
+                    .superClass(superClass)
+                    .implementations(interfaces)
+        }
+
+        val declaration = builder
+                .modifiers(EnumSet.copyOf(modifiers))
+                .qualifiedName(type.canonicalName)
+                .genericSignature(genericSignature)
+                .staticBlock(staticBlock)
+                .fields(fields)
+                .constructors(constructors)
+                .methods(methods)
+                .innerTypes(innerTypes)
+                .build()
+
+
+        checkSignature(classNode.signature, declaration, superClass, interfaces)
 
         return declaration
     }
 
-    private fun checkSignature(signature: String?, declaration: TypeDeclaration, superClass: CodeType, interfaces: List<CodeType>) {
-        val superClassIsGeneric = superClass is GenericType
-        val anyInterfaceIsGeneric = interfaces.any { it is GenericType }
+    private fun checkSignature(signature: String?, declaration: TypeDeclaration, superClass: Type, interfaces: List<Type>) {
+        val superClassIsGeneric = superClass.codeType is GenericType
+        val anyInterfaceIsGeneric = interfaces.any { it.codeType is GenericType }
 
-        val sign = CommonGenericUtil.genericTypesToAsmString(declaration, superClass, interfaces, superClassIsGeneric, anyInterfaceIsGeneric)
+        val sign = genericTypesToDescriptor(declaration, superClass, interfaces, superClassIsGeneric, anyInterfaceIsGeneric)
 
         if (signature != sign) {
             throw IllegalStateException("Signature parsed incorrectly: expected: $signature. current: $sign")

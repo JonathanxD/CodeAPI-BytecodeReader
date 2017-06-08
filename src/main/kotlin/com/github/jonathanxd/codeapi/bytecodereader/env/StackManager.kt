@@ -25,24 +25,25 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.env
+package com.github.jonathanxd.codeapi.bytecodereader.env
 
-import com.github.jonathanxd.bytecodereader.extra.UnknownPart
-import com.github.jonathanxd.bytecodereader.util.filterWithIndex
-import com.github.jonathanxd.bytecodereader.util.remove
-import com.github.jonathanxd.codeapi.CodePart
-import java.util.*
+import com.github.jonathanxd.codeapi.CodeInstruction
+import com.github.jonathanxd.codeapi.bytecodereader.extra.UnknownPart
+import com.github.jonathanxd.codeapi.bytecodereader.util.filterWithIndex
+import com.github.jonathanxd.codeapi.bytecodereader.util.remove
+import java.util.ArrayList
+import java.util.NoSuchElementException
 import java.util.function.Predicate
 
-class StackManager {
+class StackManager<E> {
 
-    private val stack = ArrayList<CodePart>()
+    private val stack = ArrayList<E>()
 
-    fun push(part: CodePart) {
+    fun push(part: E) {
         this.stack.add(part)
     }
 
-    fun push(parts: List<CodePart>) {
+    fun push(parts: List<E>) {
         this.stack.addAll(parts)
     }
 
@@ -56,7 +57,7 @@ class StackManager {
         return pop as T
     }
 
-    fun popAll(): List<CodePart> {
+    fun popAll(): List<E> {
         val popped = ArrayList(this.stack)
 
         this.stack.clear()
@@ -64,72 +65,75 @@ class StackManager {
         return popped
     }
 
-    fun pop(): CodePart {
+    @Suppress("UNCHECKED_CAST")
+    fun pop(): E {
         this.checkEmpty()
 
         this.checkEmpty()
 
         for (i in this.stack.indices.reversed()) {
-            val codePart = this.stack[i] as? UnknownPart ?: return this.stack.removeAt(i)
+            val part = this.stack[i] as? UnknownPart ?: return this.stack.removeAt(i)
 
+            if(part !is UnknownPart) // TODO: review
+                return part as E
         }
 
         throw IllegalStateException("Cannot peek value from stack.")
     }
 
-    fun peekFind(predicate: Predicate<CodePart>): CodePart {
+    fun peekFind(predicate: Predicate<E>): E {
         this.checkEmpty()
 
         for (i in this.stack.indices.reversed()) {
-            val codePart = this.stack[i]
+            val codeInstruction = this.stack[i]
 
-            if (codePart !is UnknownPart && predicate.test(codePart))
-                return codePart
+            if (codeInstruction !is UnknownPart && predicate.test(codeInstruction))
+                return codeInstruction
         }
 
         throw IllegalStateException("Cannot peek value from stack/Cannot find value in stack.")
     }
 
-    fun peek(): CodePart {
+    fun peek(): E {
         this.checkEmpty()
 
         for (i in this.stack.indices.reversed()) {
-            val codePart = this.stack[i]
+            val codeInstruction = this.stack[i]
 
-            if (codePart !is UnknownPart)
-                return codePart
+            if (codeInstruction !is UnknownPart)
+                return codeInstruction
         }
 
         throw IllegalStateException("Cannot peek value from stack.")
     }
 
-    fun pop(n: Int): List<CodePart> {
+    fun pop(n: Int): List<E> {
         if (n == 0)
             return ArrayList()
 
         this.checkEmpty(n)
 
-        val intNodes = this.stack.filterWithIndex(StackManager.NOT_IP)
+        val intNodes = this.stack.filterWithIndex(StackManager.NOT_IP())
 
         val size = intNodes.size
         val start = size - n
 
         val sub = intNodes.subList(start, intNodes.size)
 
-        val result = sub.map { it.value }
+        val result = sub.map { it.second }
 
-        remove(this.stack, sub.map { it.key }.toIntArray())
+        remove(this.stack, sub.map { it.first }.toIntArray())
 
         return result
     }
 
-    private fun peek(n: Int): List<CodePart> {
+    private fun peek(n: Int): List<E> {
         if (n == 0)
             return ArrayList()
 
         this.checkEmpty(n)
 
-        val collect = this.stack.filter(StackManager.NOT_IP)
+        val collect = this.stack.filter(StackManager.NOT_IP())
 
         val size = collect.size
         val start = size - n
@@ -138,21 +142,22 @@ class StackManager {
     }
 
     val isEmpty: Boolean
-        get() = this.stack.none(StackManager.NOT_IP)
+        get() = this.stack.none(StackManager.NOT_IP())
 
     private fun checkEmpty() {
-        if (this.stack.none(StackManager.NOT_IP))
+        if (this.stack.none(StackManager.NOT_IP()))
             throw NoSuchElementException("Empty stack.")
     }
 
     private fun checkEmpty(n: Int) {
         this.checkEmpty()
 
-        if (this.stack.filter(StackManager.NOT_IP).size - n < 0)
+        if (this.stack.filter(StackManager.NOT_IP()).size - n < 0)
             throw NoSuchElementException("Cannot get '" + n + "' elements from stack. Stack size: " + this.stack.size)
     }
 
     companion object {
-        private val NOT_IP = { part: CodePart -> part !is UnknownPart }
+
+        fun <E> NOT_IP() = { part: E -> part !is UnknownPart }
     }
 }

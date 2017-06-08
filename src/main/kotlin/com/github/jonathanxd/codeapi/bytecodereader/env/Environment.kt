@@ -25,15 +25,14 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.env
+package com.github.jonathanxd.codeapi.bytecodereader.env
 
-import com.github.jonathanxd.codeapi.CodeAPI
-import com.github.jonathanxd.codeapi.common.Data
 import com.github.jonathanxd.codeapi.type.CodeType
 import com.github.jonathanxd.codeapi.type.PlainCodeType
-import com.github.jonathanxd.codeapi.util.SimpleResolver
-import com.github.jonathanxd.codeapi.util.TypeResolver
-import java.util.*
+import com.github.jonathanxd.codeapi.util.*
+import com.github.jonathanxd.iutils.data.TypedData
+import java.lang.reflect.Type
+import java.util.HashMap
 
 /**
  * Bytecode reading environment
@@ -42,21 +41,24 @@ import java.util.*
  */
 class Environment : TypeResolver {
 
-    val data = Data()
-    private val types = HashMap<String, CodeType>()
-    val typeResolver: TypeResolver = SimpleResolver(TypeResolver { str, isInterface -> this.getType(str, isInterface) }, false)
+    val data = TypedData()
+    private val types = HashMap<String, Type>()
+    val typeResolver: TypeResolver = SimpleResolver(object : TypeResolver {
+        override fun resolve(name: String, isInterface: Boolean): Type =
+                this@Environment.getType(name, isInterface)
+    }, false)
 
-    fun getType(str: String): CodeType {
+    fun getType(str: String): Type {
         return this.getType(str, false)
     }
 
-    fun getType(str: String, isInterface: Boolean): CodeType {
+    fun getType(str: String, isInterface: Boolean): Type {
         return this.getType0(str, isInterface)
     }
 
-    private fun getType0(str: String, isInterface: Boolean): CodeType {
+    private fun getType0(str: String, isInterface: Boolean): Type {
 
-        val type: CodeType
+        val type: Type
 
         val types = this.getTypes()
 
@@ -67,7 +69,7 @@ class Environment : TypeResolver {
             val aClass: Class<*>? = this.check(str)
 
             if (aClass != null) {
-                type = CodeAPI.getJavaType(aClass)
+                type = aClass
             } else {
                 type = BytecodeCodeType(str, isInterface)
             }
@@ -94,23 +96,23 @@ class Environment : TypeResolver {
 
     }
 
-    override fun resolveUnknown(name: String): CodeType {
+    fun resolveUnknown(name: String): Type {
         return this.typeResolver.resolveUnknown(name)
     }
 
-    override fun resolve(name: String, isInterface: Boolean): CodeType {
+    override fun resolve(name: String, isInterface: Boolean): Type {
         return this.typeResolver.resolve(name, isInterface)
     }
 
-    override fun resolveInterface(type: String): CodeType {
+    fun resolveInterface(type: String): Type {
         return this.typeResolver.resolveInterface(type)
     }
 
-    override fun resolveClass(type: String): CodeType {
+    fun resolveClass(type: String): Type {
         return this.typeResolver.resolveClass(type)
     }
 
-    protected fun getTypes(): MutableMap<String, CodeType> {
+    private fun getTypes(): MutableMap<String, Type> {
         return this.types
     }
 
@@ -126,12 +128,16 @@ class Environment : TypeResolver {
             this.isInterface = isInterface
         }
 
-        override fun equals(obj: Any?): Boolean {
+        override fun hashCode(): Int {
+            return this.hash()
+        }
 
-            if (obj is CodeType)
-                return this.compareTo((obj as CodeType?)!!) == 0
+        override fun equals(other: Any?): Boolean {
 
-            return super.equals(obj)
+            if (other is CodeType)
+                return this.compareTo((other as CodeType?)!!) == 0
+
+            return super.equals(other)
         }
     }
 }

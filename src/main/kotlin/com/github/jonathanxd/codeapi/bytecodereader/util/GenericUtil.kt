@@ -25,16 +25,12 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.util
+package com.github.jonathanxd.codeapi.bytecodereader.util
 
 import com.github.jonathanxd.codeapi.generic.GenericSignature
 import com.github.jonathanxd.codeapi.type.Generic
 import com.github.jonathanxd.codeapi.type.GenericType
-import com.github.jonathanxd.codeapi.util.CodeTypeUtil
-import com.github.jonathanxd.codeapi.util.GenericTypeUtil
-import com.github.jonathanxd.codeapi.util.TypeResolver
-import com.github.jonathanxd.codeapi.bytecodecommon.GenericUtil as CommonGenericUtil
-import com.github.jonathanxd.codeapi.bytecodecommon.CodeTypeUtil as CommonCodeTypeUtil
+import com.github.jonathanxd.codeapi.util.*
 import java.text.CharacterIterator
 import java.text.StringCharacterIterator
 
@@ -48,7 +44,7 @@ object GenericUtil {
         var superType: GenericType? = null
         val interfaces = mutableListOf<GenericType>()
 
-        var str = CommonGenericUtil.genericTypesToAsmString(genericSignature!!.types)
+        var str = genericSignature!!.genericSignatureToDescriptor()
 
         while (signature.length > str.length && signature.startsWith(str)) {
             val sub = signature.substring(str.length)
@@ -65,7 +61,7 @@ object GenericUtil {
             else
                 interfaces.add(type)
 
-            str += CommonCodeTypeUtil.toName(type)
+            str += type.descName
         }
 
         return Signature(genericSignature, superType!!, interfaces.toTypedArray())
@@ -149,7 +145,7 @@ object GenericUtil {
             if (signature.current() == '<') {
                 val name = sb.toString()
 
-                generic = Generic.type(typeResolver.resolveUnknown(name))
+                generic = Generic.type(typeResolver.resolveUnknown(name).codeType)
 
                 signature.next()
 
@@ -172,7 +168,7 @@ object GenericUtil {
         if (generic != null) {
             return generic
         } else {
-            return Generic.type(typeResolver.resolveUnknown(sb.toString()))
+            return Generic.type(typeResolver.resolveUnknown(sb.toString()).codeType)
         }
     }
 

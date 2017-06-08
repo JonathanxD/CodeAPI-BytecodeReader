@@ -25,9 +25,9 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.util.asm
+package com.github.jonathanxd.codeapi.bytecodereader.util.asm
 
-import com.github.jonathanxd.codeapi.common.CodeModifier
+import com.github.jonathanxd.codeapi.base.CodeModifier
 import org.objectweb.asm.Opcodes
 
 object ModifierUtil {

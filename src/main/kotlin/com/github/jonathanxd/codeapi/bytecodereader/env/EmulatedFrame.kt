@@ -25,12 +25,13 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.env
+package com.github.jonathanxd.codeapi.bytecodereader.env
 
-import com.github.jonathanxd.codeapi.CodePart
+import com.github.jonathanxd.codeapi.CodeInstruction
 import com.github.jonathanxd.codeapi.base.Access
 import com.github.jonathanxd.codeapi.base.VariableAccess
 import com.github.jonathanxd.codeapi.type.CodeType
+import java.lang.reflect.Type
 
 class EmulatedFrame {
 
@@ -42,7 +43,7 @@ class EmulatedFrame {
     /**
      * Operand Stack
      */
-    val operandStack = StackManager()
+    val operandStack = StackManager<CodeInstruction>()
 
     /**
      * Pushes the values to [.localVariableTable].
@@ -56,7 +57,6 @@ class EmulatedFrame {
         for (i in values.indices) {
             this.store(values[i], startIndex + i)
         }
-
     }
 
     /**
@@ -98,7 +98,7 @@ class EmulatedFrame {
      * @param index Slot index
      * @return The Variable.
      */
-    fun load(index: Int): CodePart {
+    fun load(index: Int): CodeInstruction {
         return this.localVariableTable[index]
     }
 
@@ -111,7 +111,7 @@ class EmulatedFrame {
         this.operandStack.push(this.load(index))
     }
 
-    fun storeInfo(slot: Int, variableType: CodeType, variableName: String) {
+    fun storeInfo(slot: Int, variableType: Type, variableName: String) {
         this.localVariableTable.storeVariableInfo(slot, variableType, variableName)
     }
 

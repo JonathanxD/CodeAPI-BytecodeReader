@@ -25,37 +25,11 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.asm
+package com.github.jonathanxd.codeapi.bytecodereader.asm
 
-import com.github.jonathanxd.bytecodereader.env.Environment
-import com.github.jonathanxd.bytecodereader.util.Conversions
-import com.github.jonathanxd.bytecodereader.util.GenericUtil
-import com.github.jonathanxd.bytecodereader.util.asm.ModifierUtil
-import com.github.jonathanxd.codeapi.base.FieldDeclaration
-import com.github.jonathanxd.codeapi.builder.FieldDeclarationBuilder
-import org.objectweb.asm.tree.FieldNode
-import java.util.*
+import com.github.jonathanxd.codeapi.base.TypeDeclaration
+import com.github.jonathanxd.codeapi.type.TypeRef
+import com.github.jonathanxd.codeapi.util.typedKeyOf
 
-object FieldAnalyzer {
-    @Suppress("UNCHECKED_CAST")
-    fun analyze(fieldNode: FieldNode, environment: Environment): FieldDeclaration {
-        val codeModifiers = ModifierUtil.fromAccess(ModifierUtil.FIELD, fieldNode.access)
-
-        var type = environment.resolveUnknown(fieldNode.desc)
-
-        val valuePart = fieldNode.value?.let { Conversions.toLiteral(it) }
-
-        val genericSignature = GenericUtil.parse(environment, fieldNode.signature)
-
-        if (genericSignature != null && genericSignature.types.size == 1)
-            type = genericSignature.types[0]
-
-        return FieldDeclarationBuilder.builder()
-                .withModifiers(EnumSet.copyOf(codeModifiers))
-                .withType(type)
-                .withName(fieldNode.name)
-                .withValue(valuePart)
-                .build()
-
-    }
-}
+// TypeDeclaration
+val TYPE_DECLARATION_REF = typedKeyOf<TypeRef>("TYPE_DECLARATION")

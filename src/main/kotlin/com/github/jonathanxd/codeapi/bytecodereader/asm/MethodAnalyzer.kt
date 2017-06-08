@@ -25,45 +25,42 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.bytecodereader.asm
+package com.github.jonathanxd.codeapi.bytecodereader.asm
 
-import com.github.jonathanxd.bytecodereader.env.EmulatedFrame
-import com.github.jonathanxd.bytecodereader.env.Environment
-import com.github.jonathanxd.bytecodereader.env.StackManager
-import com.github.jonathanxd.bytecodereader.util.Conversions
-import com.github.jonathanxd.bytecodereader.util.asm.Countdown
-import com.github.jonathanxd.bytecodereader.util.asm.ModifierUtil
-import com.github.jonathanxd.bytecodereader.util.asm.VisitTranslator
-import com.github.jonathanxd.codeapi.CodePart
+import com.github.jonathanxd.codeapi.CodeInstruction
+import com.github.jonathanxd.codeapi.CodeSource
 import com.github.jonathanxd.codeapi.MutableCodeSource
-import com.github.jonathanxd.codeapi.base.BodyHolder
-import com.github.jonathanxd.codeapi.base.MethodDeclaration
-import com.github.jonathanxd.codeapi.base.StaticBlock
-import com.github.jonathanxd.codeapi.base.TypeDeclaration
-import com.github.jonathanxd.codeapi.base.impl.ConstructorDeclarationImpl
-import com.github.jonathanxd.codeapi.base.impl.MethodDeclarationImpl
-import com.github.jonathanxd.codeapi.base.impl.StaticBlockImpl
-import com.github.jonathanxd.codeapi.common.CodeParameter
+import com.github.jonathanxd.codeapi.base.*
+import com.github.jonathanxd.codeapi.base.comment.Comments
+import com.github.jonathanxd.codeapi.bytecodereader.env.EmulatedFrame
+import com.github.jonathanxd.codeapi.bytecodereader.env.Environment
+import com.github.jonathanxd.codeapi.bytecodereader.env.StackManager
+import com.github.jonathanxd.codeapi.bytecodereader.util.Conversions
+import com.github.jonathanxd.codeapi.bytecodereader.util.asm.Ignore
+import com.github.jonathanxd.codeapi.bytecodereader.util.asm.ModifierUtil
+import com.github.jonathanxd.codeapi.bytecodereader.util.asm.VisitTranslator
+import com.github.jonathanxd.codeapi.factory.parameter
 import com.github.jonathanxd.codeapi.generic.GenericSignature
-import com.github.jonathanxd.codeapi.read.bytecode.asm.OperandAddVisitor
+import com.github.jonathanxd.codeapi.type.TypeRef
+import com.github.jonathanxd.codeapi.util.require
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.*
-import java.util.*
+import java.util.EnumSet
 import java.util.logging.Logger
 
 object MethodAnalyzer {
     private val logger = Logger.getLogger("CodeAPI_MethodAnalyzer")
 
     @Suppress("UNCHECKED_CAST")
-    fun analyze(methodNode: MethodNode, environment: Environment): MethodDeclaration {
+    fun analyze(methodNode: MethodNode, environment: Environment): MethodDeclarationBase {
         val methodName = methodNode.name
         val desc = methodNode.desc
         val asmParameters = methodNode.parameters as? List<ParameterNode> ?: emptyList()
 
         val modifiers = EnumSet.copyOf(ModifierUtil.fromAccess(ModifierUtil.METHOD, methodNode.access))
 
-        val declaration = environment.data.getRequired<TypeDeclaration>(TYPE_DECLARATION)
+        val declaration = TYPE_DECLARATION_REF.require(environment.data)
 
         val typeSpec = Conversions.typeSpecFromDesc(environment, declaration, methodName, desc)
 
@@ -71,27 +68,34 @@ object MethodAnalyzer {
 
             val name = if (asmParameters.size > i) asmParameters[i].name else "param$i"
 
-            CodeParameter(codeType, name)
+            parameter(type = codeType, name = name)
         }
 
+        val exceptions = methodNode.exceptions.map { environment.resolveUnknown(it as String) }
 
-        val method: MethodDeclaration =
+        val method: MethodDeclarationBase =
                 when (methodName) {
-                    "<init>" -> ConstructorDeclarationImpl(
+                    "<init>" -> ConstructorDeclaration(
                             modifiers = modifiers,
                             parameters = parameters,
-                            body = MutableCodeSource(),
+                            body = MutableCodeSource.create(),
                             annotations = emptyList(),
-                            genericSignature = GenericSignature.empty())
-                    "<clinit>" -> StaticBlockImpl(MutableCodeSource())
-                    else -> MethodDeclarationImpl(
+                            genericSignature = GenericSignature.Companion.empty(),
+                            comments = Comments.Absent,
+                            innerTypes = emptyList(),
+                            throwsClause = exceptions)
+                    "<clinit>" -> StaticBlock(Comments.Absent, emptyList(), MutableCodeSource.create())
+                    else -> MethodDeclaration(
                             name = methodName,
                             modifiers = modifiers,
                             parameters = parameters,
                             returnType = typeSpec.returnType,
-                            body = MutableCodeSource(),
+                            body = MutableCodeSource.create(),
                             annotations = emptyList(),
-                            genericSignature = GenericSignature.empty())
+                            genericSignature = GenericSignature.Companion.empty(),
+                            comments = Comments.Absent,
+                            innerTypes = emptyList(),
+                            throwsClause = exceptions)
                 }
 
         val instructions = methodNode.instructions
@@ -102,36 +106,40 @@ object MethodAnalyzer {
 
     }
 
-    class Analyze(val instructions: InsnList, val method: MethodDeclaration, val methodNode: MethodNode, val declaringType: TypeDeclaration, val environment: Environment) {
+    class Analyze(val instructions: InsnList,
+                  val method: MethodDeclarationBase,
+                  val methodNode: MethodNode,
+                  val declaringType: TypeRef,
+                  val environment: Environment) {
 
         val frame = EmulatedFrame()
-        val bodyStack = StackManager()
+        val bodyStack = StackManager<CodeSource>()
 
         @Suppress("UNCHECKED_CAST")
-        fun analyze(): MethodDeclaration {
+        fun analyze(): MethodDeclarationBase {
 
             val array = instructions.toArray()
 
             val localVariables = methodNode.localVariables as? List<LocalVariableNode> ?: emptyList()
             val localParameters = methodNode.parameters as? List<ParameterNode> ?: emptyList()
             val exceptionTable = methodNode.tryCatchBlocks as? List<TryCatchBlockNode> ?: emptyList()
-            val labels = mutableListOf<LabelNode>()
+            //val labels = mutableListOf<LabelNode>()
 
             VisitTranslator.readVariableTable(localVariables, this.environment, this.frame::storeInfo)
 
             val parameters = VisitTranslator.fixParametersNames(method.parameters, localParameters, this.frame)
-            var count = Countdown(0)
+            var ignore = Ignore(intArrayOf())
 
             VisitTranslator.initMethod(this.method, parameters, this.frame)
 
             array.forEachIndexed { i, it ->
 
                 if (it is LabelNode) {
-                    count = this.handleExceptionTable(array, i, exceptionTable, it)
+                    ignore = this.handleExceptionTable(array, i, exceptionTable, it)
                 }
 
-                if (count.countdown()) {
-                    when (it) {
+                if (!ignore.indexes.contains(i)) {
+                    when (it) { // TODO: Handle JumpNode
                         is InsnNode -> this.visitInsn(it.opcode)
                         is VarInsnNode -> this.visitVarInsn(it.opcode, it.`var`)
                         is IntInsnNode -> this.visitIntInsn(it.opcode, it.operand)
@@ -141,13 +149,14 @@ object MethodAnalyzer {
                         is InvokeDynamicInsnNode -> this.visitInvokeDynamicInsn(it.name, it.desc, it.bsm, it.bsmArgs)
                         is LdcInsnNode -> this.visitLdcInsn(it.cst)
                         is IincInsnNode -> this.visitIincInsn(it.`var`, it.incr)
+                        is JumpInsnNode -> this.visitJumpInsn(it.opcode, it.label)
                         is LabelNode -> {
-                            labels += it
+                            //labels += it
                             it.accept(OperandAddVisitor(this.frame.operandStack))
                         }
                         else -> {
                             it.accept(OperandAddVisitor(this.frame.operandStack))
-                            logger.warning("Insn '$it' isn't supported yet, this instruction will only appear in result of processors that support InstructionCodePart.")
+                            logger.warning("Insn '$it' isn't supported yet.")
                         }
                     }
                 }
@@ -160,11 +169,15 @@ object MethodAnalyzer {
 
             source.addAll(codeParts)
 
-            return method.builder().withParameters(parameters).withBody(source).build()
+            return method.builder().parameters(parameters).body(source).build()
         }
 
-        fun handleExceptionTable(insns: Array<AbstractInsnNode>, index: Int, tryCatchBlocks: List<TryCatchBlockNode>, label: LabelNode): Countdown {
-            return VisitTranslator.handleExceptionTable(insns, index, tryCatchBlocks, label, bodyStack, environment, frame)
+        fun visitJumpInsn(opcode: Int, label: LabelNode) {
+            VisitTranslator.visitJumpInsn(opcode, label, bodyStack, environment, frame, environment.data)?.pushToOperand()
+        }
+
+        fun handleExceptionTable(insns: Array<AbstractInsnNode>, index: Int, tryCatchBlocks: List<TryCatchBlockNode>, label: LabelNode): Ignore {
+            return VisitTranslator.handleExceptionTable(insns, index, tryCatchBlocks, label, bodyStack, environment, frame, environment.data)
         }
 
         fun visitInsn(opcode: Int) {
@@ -208,11 +221,17 @@ object MethodAnalyzer {
         }
 
 
-        private fun CodePart.pushToOperand() {
+        private fun CodeInstruction.pushToOperand() {
             if (bodyStack.isEmpty) {
                 frame.operandStack.push(this)
             } else {
-                ((bodyStack.peek() as BodyHolder).body as MutableCodeSource).add(this)
+                val peek = bodyStack.peek()
+
+                if (peek !is MutableCodeSource) {
+                    ((peek as BodyHolder).body as MutableCodeSource).add(this)
+                } else {
+                    peek.add(this)
+                }
             }
         }
     }
