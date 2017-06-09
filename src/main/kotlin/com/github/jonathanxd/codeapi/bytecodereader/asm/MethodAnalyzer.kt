@@ -163,7 +163,7 @@ object MethodAnalyzer {
 
             }
 
-            val codeParts = this.frame.operandStack.popAll()
+            val codeParts = this.frame.operandStack.popAllFilterExcluded()
 
             val source = this.method.body.toMutable()
 
@@ -177,7 +177,10 @@ object MethodAnalyzer {
         }
 
         fun handleExceptionTable(insns: Array<AbstractInsnNode>, index: Int, tryCatchBlocks: List<TryCatchBlockNode>, label: LabelNode): Ignore {
-            return VisitTranslator.handleExceptionTable(insns, index, tryCatchBlocks, label, bodyStack, environment, frame, environment.data)
+            VisitTranslator.handleExceptionTable(insns, index, tryCatchBlocks, label, bodyStack, environment, frame, environment.data)
+                    .forEach { it.pushToOperand() }
+
+            return Ignore(intArrayOf())
         }
 
         fun visitInsn(opcode: Int) {
@@ -188,7 +191,7 @@ object MethodAnalyzer {
         }
 
         fun visitVarInsn(opcode: Int, slot: Int) {
-            VisitTranslator.visitVarInsn(opcode, slot, this.frame)?.pushToOperand()
+            VisitTranslator.visitVarInsn(opcode, slot, this.frame).pushToOperand()
         }
 
         fun visitIntInsn(opcode: Int, operand: Int) {
@@ -222,7 +225,8 @@ object MethodAnalyzer {
 
 
         private fun CodeInstruction.pushToOperand() {
-            if (bodyStack.isEmpty) {
+            frame.operandStack.push(this)
+            /*if (bodyStack.isEmpty) {
                 frame.operandStack.push(this)
             } else {
                 val peek = bodyStack.peek()
@@ -232,7 +236,8 @@ object MethodAnalyzer {
                 } else {
                     peek.add(this)
                 }
-            }
+                frame.operandStack.pushExcluded(this)
+            }*/
         }
     }
 

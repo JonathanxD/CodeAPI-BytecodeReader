@@ -7,6 +7,7 @@ import com.github.jonathanxd.codeapi.CodeSource;
 import com.github.jonathanxd.codeapi.base.BodyHolder;
 import com.github.jonathanxd.codeapi.base.TypeDeclaration;
 import com.github.jonathanxd.codeapi.bytecodereader.BytecodeReader;
+import com.github.jonathanxd.codeapi.bytecodereader.extra.MagicPart;
 import com.github.jonathanxd.codeapi.bytecodereader.extra.UnknownPart;
 import com.github.jonathanxd.codeapi.factory.Factories;
 import com.github.jonathanxd.codeapi.factory.PartFactory;
@@ -70,6 +71,18 @@ public class TestRead {
 
             }
         }, UnknownPart.class);
+
+        plainSourceGenerator.registerProcessor(new Processor<MagicPart>() {
+            @Override
+            public void process(MagicPart part, @NotNull TypedData data, @NotNull CodeProcessor<?> codeProcessor) {
+                //KeysKt.getAPPENDER().getOrNull(data).append(part.getObj().toString());
+            }
+
+            @Override
+            public void endProcess(MagicPart part, @NotNull TypedData data, @NotNull CodeProcessor<?> codeProcessor) {
+
+            }
+        }, MagicPart.class);
 
         String gen = plainSourceGenerator.process(read);
 

@@ -29,6 +29,7 @@ package com.github.jonathanxd.codeapi.bytecodereader.asm
 
 import com.github.jonathanxd.codeapi.CodeInstruction
 import com.github.jonathanxd.codeapi.bytecodereader.env.StackManager
+import com.github.jonathanxd.codeapi.bytecodereader.extra.MagicPart
 import com.github.jonathanxd.codeapi.bytecodereader.extra.UnknownPart
 import org.objectweb.asm.*
 
@@ -104,6 +105,7 @@ internal class OperandAddVisitor(val stackManager: StackManager<CodeInstruction>
     override fun visitLabel(label: Label?) {
         super.visitLabel(label)
         //this.push("visitLabel[label=$label]")
+        label?.let { this.stackManager.push(MagicPart(it)) }
     }
 
     override fun visitTryCatchAnnotation(typeRef: Int, typePath: TypePath?, desc: String?, visible: Boolean): AnnotationVisitor {

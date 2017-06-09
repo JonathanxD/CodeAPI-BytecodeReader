@@ -27,17 +27,20 @@
  */
 package com.github.jonathanxd.codeapi.bytecodereader.util.asm
 
-import com.github.jonathanxd.codeapi.*
+import com.github.jonathanxd.codeapi.CodeInstruction
+import com.github.jonathanxd.codeapi.CodeSource
+import com.github.jonathanxd.codeapi.MutableCodeSource
+import com.github.jonathanxd.codeapi.Types
 import com.github.jonathanxd.codeapi.base.*
 import com.github.jonathanxd.codeapi.bytecodereader.env.EmulatedFrame
 import com.github.jonathanxd.codeapi.bytecodereader.env.StackManager
+import com.github.jonathanxd.codeapi.bytecodereader.extra.MagicPart
 import com.github.jonathanxd.codeapi.bytecodereader.extra.UnknownPart
 import com.github.jonathanxd.codeapi.bytecodereader.util.*
 import com.github.jonathanxd.codeapi.common.CONSTRUCTOR
 import com.github.jonathanxd.codeapi.common.CodeNothing
 import com.github.jonathanxd.codeapi.factory.*
 import com.github.jonathanxd.codeapi.literal.Literals
-import com.github.jonathanxd.codeapi.operator.Operator
 import com.github.jonathanxd.codeapi.operator.Operators
 import com.github.jonathanxd.codeapi.type.CodeType
 import com.github.jonathanxd.codeapi.util.*
@@ -58,6 +61,8 @@ import java.util.logging.Logger
 object VisitTranslator {
 
     private val logger = Logger.getLogger("CodeAPI_Translator")
+
+    val TRY_DATA = typedKeyOf<MutableList<TryData>>("TRY_DATA")
 
     val CATCH_BLOCKS = typedKeyOf<ListHashMap<@Named("Start") Label, CatchData>>("CATCH_BLOCKS")
 
@@ -213,10 +218,12 @@ object VisitTranslator {
         }
     }
 
-    fun visitVarInsn(opcode: Int, slot: Int, frame: EmulatedFrame): CodeInstruction? {
+    fun visitVarInsn(opcode: Int, slot: Int, frame: EmulatedFrame): CodeInstruction {
 
         if (opcode == Opcodes.ILOAD || opcode == Opcodes.LLOAD || opcode == Opcodes.FLOAD || opcode == Opcodes.DLOAD || opcode == Opcodes.ALOAD) {
-            frame.loadToStack(slot)
+            val varInfo = frame.getInfo(slot) ?: throw IllegalArgumentException("No variable found at slot `$slot` in '$frame'")
+
+            return accessVariable(varInfo.type, varInfo.name)
         } else if (opcode == Opcodes.ISTORE || opcode == Opcodes.LSTORE || opcode == Opcodes.FSTORE || opcode == Opcodes.DSTORE || opcode == Opcodes.ASTORE) {
 
             val pop = frame.operandStack.pop()
@@ -242,7 +249,6 @@ object VisitTranslator {
             return this.createInstruction("visitVarInsn[opcode=$opcode, slot=$slot]")
         }
 
-        return null
     }
 
     fun visitTypeInsn(opcode: Int, type: String, typeResolver: TypeResolver, frame: EmulatedFrame): CodeInstruction {
@@ -440,6 +446,11 @@ object VisitTranslator {
 
     }
 
+    /**
+     * Handling process is very simple. First we collect all information about try statement,
+     * and then when end is reached we analyze stack, pop all part of try and catch bodies and put them
+     * inside CodeSource
+     */
     fun handleExceptionTable(insns: Array<AbstractInsnNode>,
                              index: Int,
                              tryCatchBlocks: List<TryCatchBlockNode>,
@@ -447,9 +458,10 @@ object VisitTranslator {
                              bodyStack: StackManager<CodeSource>,
                              typeResolver: TypeResolver,
                              frame: EmulatedFrame,
-                             data: TypedData): Ignore {
+                             data: TypedData): List<CodeInstruction> {
 
         val label = labelNode.label
+        val instruction = mutableListOf<CodeInstruction>()
 
         val exists = CATCH_BLOCKS.getOrNull(data).let {
             if (it == null) {
@@ -459,9 +471,117 @@ object VisitTranslator {
             } else return@let it
         }
 
-        var ignore = Ignore(intArrayOf())
+        val tryDatas = TRY_DATA.getOrSet(data, mutableListOf())
 
-        val catchBlocks = exists
+        tryCatchBlocks.forEach {
+            val start = it.start.label
+            val end = it.end.label
+            val handler = it.handler.label
+
+            val type = if (it.type != null) typeResolver.resolveUnknown(it.type) else Types.THROWABLE
+
+            val tryData = tryDatas.firstOrNull { it.start == start && it.end == end }
+                    ?: TryData(start, end, null, mutableListOf()).also {
+                TRY_DATA.add(data, it)
+            }
+
+            val catchData = tryData.catchDataList.firstOrNull { it.handler == handler }?.also {
+                it.builder.exceptionTypes += type
+            } ?: CatchData(handler, CatchStatement.Builder.builder()
+                    .exceptionTypes(type)
+                    .body(MutableCodeSource.create()),
+                    null).also {
+                tryData.catchDataList += it
+            }
+
+            if (end == label) {
+                val next = insns.nextMatch(index + 1, { it.isFlowStopInsn() })
+
+                next as JumpInsnNode
+
+                val endOfTryCatch = next.label.label
+
+                if (tryData.endOfTryCatch == null)
+                    tryData.endOfTryCatch = endOfTryCatch
+
+                //catchData.end = endOfTryCatch
+
+            } else if (it.handler.label == label) {
+                /*val tryBlock = CodeAPI.tryBlock(MutableCodeSource(), catchBlocks.flatMap { it.value })
+                bodyStack*/
+                val next0 = insns.nextNodeMatch(index + 1, { it is VarInsnNode })!!
+                val index = next0.first
+                val next = next0.second
+
+                next as VarInsnNode
+
+                val info = frame.getInfo(next.`var`)!!
+
+                catchData.variable = variable(info.type, info.name)
+            } else if (tryCatchBlocks.filter { b -> it != b }.any { it.handler.label == label }
+                    || (tryData.endOfTryCatch != null && tryData.endOfTryCatch == label)) {
+                val next = insns.nextMatch(index - 1, { it.isFlowStopInsn() })
+
+                catchData.end = label
+            }
+
+
+        }
+
+        val datas = tryDatas.filter { it.endOfTryCatch == label }
+
+        if(datas.isNotEmpty()) {
+            val block = datas.single()
+
+            val start = frame.operandStack.peekFind {
+                it is MagicPart && it.obj == block.start
+            }
+
+            val end = frame.operandStack.peekFind {
+                it is MagicPart && it.obj == block.end
+            }
+
+            val sub = frame.operandStack.sub(start.index, end.index)
+
+            val catchStm = mutableListOf<CatchStatement>()
+
+            instruction += TryStatement(body = CodeSource.fromIterable(frame.operandStack.filter(sub)),
+                    catchStatements = catchStm,
+                    finallyStatement = CodeSource.empty())
+
+            sub.clear()
+
+            val endOfTryCatchBlock = frame.operandStack.size - 1
+
+            block.catchDataList.forEach {
+                val startIndex = frame.operandStack.peekFind { find ->
+                    find is MagicPart && find.obj == it.handler
+                }
+
+                val endIndex = if(it.end == label)
+                    endOfTryCatchBlock
+                else frame.operandStack.peekFind { find ->
+                    find is MagicPart && find.obj == it.end
+                }.index
+
+                val sub2 = frame.operandStack.sub(startIndex.index, endIndex)
+
+                catchStm += it.builder
+                        .variable(it.variable!!)
+                        .body(CodeSource.fromIterable(frame.operandStack.filter(sub2)))
+                        .build()
+
+                sub2.clear()
+
+            }
+
+
+
+            val f = {}()
+        }
+
+
+        /*val catchBlocks = exists
 
         tryCatchBlocks.forEach {
             val startLabel = it.start.label
@@ -484,9 +604,6 @@ object VisitTranslator {
                     foundCatchData.builder.exceptionTypes += type
                 }
 
-                bodyStack.push(MutableCodeSource.create())
-
-                //countdown = Countdown(1)
             } else if (endLabel == label) {
                 val next = insns.nextMatch(index + 1, { it is JumpInsnNode })
 
@@ -497,7 +614,7 @@ object VisitTranslator {
                 foundCatchData!!.end = end
 
                 val tryStatement = TryStatement(
-                        body = bodyStack.pop(),
+                        body = MutableCodeSource.create(),
                         catchStatements = mutableListOf(),
                         finallyStatement = CodeSource.empty())
 
@@ -505,11 +622,11 @@ object VisitTranslator {
                     it.tryStatement = tryStatement
                 }
 
-                frame.operandStack.push(tryStatement)
+                instruction += tryStatement
 
             } else if (it.handler.label == label) {
-                /*val tryBlock = CodeAPI.tryBlock(MutableCodeSource(), catchBlocks.flatMap { it.value })
-                bodyStack*/
+                *//*val tryBlock = CodeAPI.tryBlock(MutableCodeSource(), catchBlocks.flatMap { it.value })
+                bodyStack*//*
                 val next0 = insns.nextNodeMatch(index + 1, { it is VarInsnNode })!!
                 val index = next0.first
                 val next = next0.second
@@ -518,9 +635,11 @@ object VisitTranslator {
 
                 val info = frame.getInfo(next.`var`)!!
 
-                val source = MutableCodeSource.create()
+                //val source = MutableCodeSource.create()
 
-                val builder = foundCatchData!!.builder
+                foundCatchData!!.variable = variable(info.type, info.name)
+
+                *//*val builder = foundCatchData!!.builder
 
                 builder
                         .variable(variable(info.type, info.name))
@@ -528,19 +647,29 @@ object VisitTranslator {
 
                 bodyStack.push(source)
 
-                frame.operandStack.push(info.type.invokeConstructor())
+                instruction += info.type.invokeConstructor()*//*
 
                 //ignore = Ignore(intArrayOf(index))
 
             } else if (label == foundCatchData?.end) {
-                (foundCatchData!!.tryStatement!!.catchStatements as MutableList<CatchStatement>).add(foundCatchData.builder.build())
-                catchBlocks[startLabel]!!.remove(foundCatchData)
+                val catchData = foundCatchData!!
 
-                bodyStack.pop()
+                val start = frame.operandStack.peekFind {
+                    it is MagicPart && it.obj == startLabel
+                }
+
+                val catchList = foundCatchData
+
+                val p = {}()
+
+                //(foundCatchData!!.tryStatement!!.catchStatements as MutableList<CatchStatement>).add(foundCatchData.builder.build())
+                //catchBlocks[startLabel]!!.remove(foundCatchData)
+
+                //bodyStack.pop()
             }
-        }
+        }*/
 
-        return ignore
+        return instruction
 
     }
 
@@ -691,6 +820,24 @@ object VisitTranslator {
 
     }
 
-    data class CatchData(val handler: Label, val builder: CatchStatement.Builder, var end: Label?, var tryStatement: TryStatement? = null)
+    data class TryData(val start: Label,
+                       val end: Label,
+                       var endOfTryCatch: Label? = null,
+                       val catchDataList: MutableList<CatchData>)
 
+    data class CatchData(val handler: Label,
+                         val builder: CatchStatement.Builder,
+                         var end: Label?,
+                         var variable: VariableDeclaration? = null)
+
+    fun AbstractInsnNode.isFlowStopInsn() =
+            (this is JumpInsnNode
+                    && this.opcode == Opcodes.GOTO)
+                    || this.opcode == Opcodes.ATHROW
+                    || (this.opcode == Opcodes.ARETURN
+                    || this.opcode == Opcodes.IRETURN
+                    || this.opcode == Opcodes.DRETURN
+                    || this.opcode == Opcodes.FRETURN
+                    || this.opcode == Opcodes.LRETURN
+                    || this.opcode == Opcodes.RETURN)
 }

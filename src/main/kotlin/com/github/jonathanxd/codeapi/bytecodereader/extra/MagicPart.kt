@@ -27,18 +27,12 @@
  */
 package com.github.jonathanxd.codeapi.bytecodereader.extra
 
-import com.github.jonathanxd.codeapi.CodeInstruction
-import com.github.jonathanxd.codeapi.base.Named
-
-class UnknownPart(val str: String) : Named, InternalPart {
-    override val name: String
-        get() = "/* UnknownPart[$str] */"
+class MagicPart(val obj: Any) : InternalPart {
 
     override fun toString(): String {
-        return "UnknownPart[$str]"
+        return "MagicPart[$obj]"
     }
 
-    override fun builder(): Named.Builder<UnknownPart, *> {
-        TODO("not implemented")
-    }
+    override fun builder() = TODO("not implemented")
+
 }

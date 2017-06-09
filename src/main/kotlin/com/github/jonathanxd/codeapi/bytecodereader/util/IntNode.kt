@@ -25,20 +25,6 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.codeapi.bytecodereader.extra
+package com.github.jonathanxd.codeapi.bytecodereader.util
 
-import com.github.jonathanxd.codeapi.CodeInstruction
-import com.github.jonathanxd.codeapi.base.Named
-
-class UnknownPart(val str: String) : Named, InternalPart {
-    override val name: String
-        get() = "/* UnknownPart[$str] */"
-
-    override fun toString(): String {
-        return "UnknownPart[$str]"
-    }
-
-    override fun builder(): Named.Builder<UnknownPart, *> {
-        TODO("not implemented")
-    }
-}
+data class IntNode<E>(val index: Int, val value: E)
