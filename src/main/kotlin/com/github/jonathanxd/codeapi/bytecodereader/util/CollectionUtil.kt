@@ -66,6 +66,16 @@ inline fun <T, R> List<T>.filterIndexedAndMap(filter: (Int, T) -> Boolean, mappe
     return list
 }
 
+inline fun <T> Array<T>.previousMatch(pos: Int, predicate: (T) -> Boolean): T? {
+    var i = pos
+
+    while (i > -1 && !predicate(this[i]))
+        --i
+
+    return if (i > -1) this[i] else null
+}
+
+
 inline fun <T> Array<T>.nextMatch(pos: Int, predicate: (T) -> Boolean): T? {
     var i = pos
 

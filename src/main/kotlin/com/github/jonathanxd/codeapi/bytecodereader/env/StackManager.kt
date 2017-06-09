@@ -56,6 +56,10 @@ class StackManager<E> {
         this.stack.addAll(parts)
     }
 
+    fun filterList(predicate: (E) -> Boolean) = stack.filter(predicate)
+
+    fun removeIf(predicate: (E) -> Boolean) = stack.removeIf(predicate)
+
     @Suppress("UNCHECKED_CAST")
     fun <T> popAs(type: Class<T>): T {
         val pop = this.pop()
@@ -123,7 +127,7 @@ class StackManager<E> {
     }
 
     fun filter(list: MutableList<E>): List<E> =
-            list.filterIndexed { index, i -> index !in this.excludedIndexes && i !is MagicPart }
+            list.filterIndexed { index, i -> index !in this.excludedIndexes }
 
     fun pop(n: Int): List<E> {
         if (n == 0)

@@ -27,10 +27,7 @@
  */
 package com.github.jonathanxd.codeapi.bytecodereader.util.asm
 
-import com.github.jonathanxd.codeapi.CodeInstruction
-import com.github.jonathanxd.codeapi.CodeSource
-import com.github.jonathanxd.codeapi.MutableCodeSource
-import com.github.jonathanxd.codeapi.Types
+import com.github.jonathanxd.codeapi.*
 import com.github.jonathanxd.codeapi.base.*
 import com.github.jonathanxd.codeapi.bytecodereader.env.EmulatedFrame
 import com.github.jonathanxd.codeapi.bytecodereader.env.StackManager
@@ -218,7 +215,7 @@ object VisitTranslator {
         }
     }
 
-    fun visitVarInsn(opcode: Int, slot: Int, frame: EmulatedFrame): CodeInstruction {
+    fun visitVarInsn(opcode: Int, slot: Int, frame: EmulatedFrame): CodeInstruction? {
 
         if (opcode == Opcodes.ILOAD || opcode == Opcodes.LLOAD || opcode == Opcodes.FLOAD || opcode == Opcodes.DLOAD || opcode == Opcodes.ALOAD) {
             val varInfo = frame.getInfo(slot) ?: throw IllegalArgumentException("No variable found at slot `$slot` in '$frame'")
@@ -235,12 +232,16 @@ object VisitTranslator {
             val type = info?.type ?: pop.type
             val name = info?.name ?: "var$slot"
 
-            return if (get == null) {
-                val variable = variable(type, name, pop)
-                frame.store(accessVariable(variable), slot)
-                variable
+            return if (pop !is CatchVariable) {
+                if (get == null) {
+                    val variable = variable(type, name, pop)
+                    frame.store(accessVariable(variable), slot)
+                    variable
+                } else {
+                    setVariableValue(type, name, pop)
+                }
             } else {
-                setVariableValue(type, name, pop)
+                null
             }
         } else {
             if (opcode == Opcodes.RET)
@@ -463,14 +464,6 @@ object VisitTranslator {
         val label = labelNode.label
         val instruction = mutableListOf<CodeInstruction>()
 
-        val exists = CATCH_BLOCKS.getOrNull(data).let {
-            if (it == null) {
-                val map = ListHashMap<@Named("Start") Label, CatchData>()
-                CATCH_BLOCKS.set(data, map)
-                return@let map
-            } else return@let it
-        }
-
         val tryDatas = TRY_DATA.getOrSet(data, mutableListOf())
 
         tryCatchBlocks.forEach {
@@ -486,7 +479,9 @@ object VisitTranslator {
             }
 
             val catchData = tryData.catchDataList.firstOrNull { it.handler == handler }?.also {
-                it.builder.exceptionTypes += type
+
+                if (type !in it.builder.exceptionTypes)
+                    it.builder.exceptionTypes += type
             } ?: CatchData(handler, CatchStatement.Builder.builder()
                     .exceptionTypes(type)
                     .body(MutableCodeSource.create()),
@@ -518,9 +513,12 @@ object VisitTranslator {
                 val info = frame.getInfo(next.`var`)!!
 
                 catchData.variable = variable(info.type, info.name)
+
+                frame.operandStack.push(CatchVariable)
+
             } else if (tryCatchBlocks.filter { b -> it != b }.any { it.handler.label == label }
                     || (tryData.endOfTryCatch != null && tryData.endOfTryCatch == label)) {
-                val next = insns.nextMatch(index - 1, { it.isFlowStopInsn() })
+                val next = insns.previousMatch(index - 1, { it.isFlowStopInsn() })
 
                 catchData.end = label
             }
@@ -530,7 +528,7 @@ object VisitTranslator {
 
         val datas = tryDatas.filter { it.endOfTryCatch == label }
 
-        if(datas.isNotEmpty()) {
+        if (datas.isNotEmpty()) {
             val block = datas.single()
 
             val start = frame.operandStack.peekFind {
@@ -558,7 +556,7 @@ object VisitTranslator {
                     find is MagicPart && find.obj == it.handler
                 }
 
-                val endIndex = if(it.end == label)
+                val endIndex = if (it.end == label)
                     endOfTryCatchBlock
                 else frame.operandStack.peekFind { find ->
                     find is MagicPart && find.obj == it.end
@@ -573,101 +571,21 @@ object VisitTranslator {
 
                 sub2.clear()
 
+                frame.operandStack.removeIf { f ->
+                    f is MagicPart
+                            && (f.obj == it.handler
+                            || f.obj == it.end)
+                }
             }
 
+            frame.operandStack.filterList {
+                it is MagicPart
+                        && (it.obj == block.start
+                        || it.obj == block.end)
+            }
 
-
-            val f = {}()
         }
 
-
-        /*val catchBlocks = exists
-
-        tryCatchBlocks.forEach {
-            val startLabel = it.start.label
-            val endLabel = it.end.label
-            val handlerLabel = it.handler.label
-
-            val foundCatchData = catchBlocks[startLabel]?.find { it.handler == handlerLabel }
-
-            if (startLabel == label) {
-                val type = if (it.type != null) typeResolver.resolveUnknown(it.type) else Types.THROWABLE
-
-                if (foundCatchData == null) {
-                    catchBlocks.putToList(
-                            startLabel,
-                            CatchData(handlerLabel, CatchStatement.Builder.builder()
-                                    .exceptionTypes(type)
-                                    .body(MutableCodeSource.create()), null)
-                    )
-                } else {
-                    foundCatchData.builder.exceptionTypes += type
-                }
-
-            } else if (endLabel == label) {
-                val next = insns.nextMatch(index + 1, { it is JumpInsnNode })
-
-                next as JumpInsnNode
-
-                val end = next.label.label
-
-                foundCatchData!!.end = end
-
-                val tryStatement = TryStatement(
-                        body = MutableCodeSource.create(),
-                        catchStatements = mutableListOf(),
-                        finallyStatement = CodeSource.empty())
-
-                catchBlocks[startLabel]!!.forEach {
-                    it.tryStatement = tryStatement
-                }
-
-                instruction += tryStatement
-
-            } else if (it.handler.label == label) {
-                *//*val tryBlock = CodeAPI.tryBlock(MutableCodeSource(), catchBlocks.flatMap { it.value })
-                bodyStack*//*
-                val next0 = insns.nextNodeMatch(index + 1, { it is VarInsnNode })!!
-                val index = next0.first
-                val next = next0.second
-
-                next as VarInsnNode
-
-                val info = frame.getInfo(next.`var`)!!
-
-                //val source = MutableCodeSource.create()
-
-                foundCatchData!!.variable = variable(info.type, info.name)
-
-                *//*val builder = foundCatchData!!.builder
-
-                builder
-                        .variable(variable(info.type, info.name))
-                        .body(source)
-
-                bodyStack.push(source)
-
-                instruction += info.type.invokeConstructor()*//*
-
-                //ignore = Ignore(intArrayOf(index))
-
-            } else if (label == foundCatchData?.end) {
-                val catchData = foundCatchData!!
-
-                val start = frame.operandStack.peekFind {
-                    it is MagicPart && it.obj == startLabel
-                }
-
-                val catchList = foundCatchData
-
-                val p = {}()
-
-                //(foundCatchData!!.tryStatement!!.catchStatements as MutableList<CatchStatement>).add(foundCatchData.builder.build())
-                //catchBlocks[startLabel]!!.remove(foundCatchData)
-
-                //bodyStack.pop()
-            }
-        }*/
 
         return instruction
 
@@ -714,7 +632,7 @@ object VisitTranslator {
         }*/
 
         //val args = frame.operandStack.pop(takeN)
-        return createInstruction("visitJumpInsn[opcode=${opcode.opcodeName}, label=$label]")
+        return createInstruction("visitJumpInsn[opcode=${opcode.opcodeName}, label=${label.label}]")
     }
 
     // Extra
@@ -819,6 +737,8 @@ object VisitTranslator {
         override fun subList(fromIndex: Int, toIndex: Int): List<CodeInstruction> = this
 
     }
+
+    object CatchVariable : CodeInstruction, CodePart // ', CodePart' to fix processing loop
 
     data class TryData(val start: Label,
                        val end: Label,

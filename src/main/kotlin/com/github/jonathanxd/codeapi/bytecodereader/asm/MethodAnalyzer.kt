@@ -39,6 +39,7 @@ import com.github.jonathanxd.codeapi.bytecodereader.util.Conversions
 import com.github.jonathanxd.codeapi.bytecodereader.util.asm.Ignore
 import com.github.jonathanxd.codeapi.bytecodereader.util.asm.ModifierUtil
 import com.github.jonathanxd.codeapi.bytecodereader.util.asm.VisitTranslator
+import com.github.jonathanxd.codeapi.common.CodeNothing
 import com.github.jonathanxd.codeapi.factory.parameter
 import com.github.jonathanxd.codeapi.generic.GenericSignature
 import com.github.jonathanxd.codeapi.type.TypeRef
@@ -128,36 +129,30 @@ object MethodAnalyzer {
             VisitTranslator.readVariableTable(localVariables, this.environment, this.frame::storeInfo)
 
             val parameters = VisitTranslator.fixParametersNames(method.parameters, localParameters, this.frame)
-            var ignore = Ignore(intArrayOf())
 
             VisitTranslator.initMethod(this.method, parameters, this.frame)
 
             array.forEachIndexed { i, it ->
 
-                if (it is LabelNode) {
-                    ignore = this.handleExceptionTable(array, i, exceptionTable, it)
-                }
-
-                if (!ignore.indexes.contains(i)) {
-                    when (it) { // TODO: Handle JumpNode
-                        is InsnNode -> this.visitInsn(it.opcode)
-                        is VarInsnNode -> this.visitVarInsn(it.opcode, it.`var`)
-                        is IntInsnNode -> this.visitIntInsn(it.opcode, it.operand)
-                        is TypeInsnNode -> this.visitTypeInsn(it.opcode, it.desc)
-                        is FieldInsnNode -> this.visitFieldInsn(it.opcode, it.owner, it.name, it.desc)
-                        is MethodInsnNode -> this.visitMethodInsn(it.opcode, it.owner, it.name, it.desc, it.itf)
-                        is InvokeDynamicInsnNode -> this.visitInvokeDynamicInsn(it.name, it.desc, it.bsm, it.bsmArgs)
-                        is LdcInsnNode -> this.visitLdcInsn(it.cst)
-                        is IincInsnNode -> this.visitIincInsn(it.`var`, it.incr)
-                        is JumpInsnNode -> this.visitJumpInsn(it.opcode, it.label)
-                        is LabelNode -> {
-                            //labels += it
-                            it.accept(OperandAddVisitor(this.frame.operandStack))
-                        }
-                        else -> {
-                            it.accept(OperandAddVisitor(this.frame.operandStack))
-                            logger.warning("Insn '$it' isn't supported yet.")
-                        }
+                when (it) { // TODO: Handle JumpNode
+                    is InsnNode -> this.visitInsn(it.opcode)
+                    is VarInsnNode -> this.visitVarInsn(it.opcode, it.`var`)
+                    is IntInsnNode -> this.visitIntInsn(it.opcode, it.operand)
+                    is TypeInsnNode -> this.visitTypeInsn(it.opcode, it.desc)
+                    is FieldInsnNode -> this.visitFieldInsn(it.opcode, it.owner, it.name, it.desc)
+                    is MethodInsnNode -> this.visitMethodInsn(it.opcode, it.owner, it.name, it.desc, it.itf)
+                    is InvokeDynamicInsnNode -> this.visitInvokeDynamicInsn(it.name, it.desc, it.bsm, it.bsmArgs)
+                    is LdcInsnNode -> this.visitLdcInsn(it.cst)
+                    is IincInsnNode -> this.visitIincInsn(it.`var`, it.incr)
+                    is JumpInsnNode -> this.visitJumpInsn(it.opcode, it.label)
+                    is LabelNode -> {
+                        //labels += it
+                        it.accept(OperandAddVisitor(this.frame.operandStack))
+                        this.handleExceptionTable(array, i, exceptionTable, it)
+                    }
+                    else -> {
+                        it.accept(OperandAddVisitor(this.frame.operandStack))
+                        logger.warning("Insn '$it' isn't supported yet.")
                     }
                 }
 
@@ -176,11 +171,9 @@ object MethodAnalyzer {
             VisitTranslator.visitJumpInsn(opcode, label, bodyStack, environment, frame, environment.data)?.pushToOperand()
         }
 
-        fun handleExceptionTable(insns: Array<AbstractInsnNode>, index: Int, tryCatchBlocks: List<TryCatchBlockNode>, label: LabelNode): Ignore {
+        fun handleExceptionTable(insns: Array<AbstractInsnNode>, index: Int, tryCatchBlocks: List<TryCatchBlockNode>, label: LabelNode) {
             VisitTranslator.handleExceptionTable(insns, index, tryCatchBlocks, label, bodyStack, environment, frame, environment.data)
                     .forEach { it.pushToOperand() }
-
-            return Ignore(intArrayOf())
         }
 
         fun visitInsn(opcode: Int) {
@@ -191,7 +184,7 @@ object MethodAnalyzer {
         }
 
         fun visitVarInsn(opcode: Int, slot: Int) {
-            VisitTranslator.visitVarInsn(opcode, slot, this.frame).pushToOperand()
+            VisitTranslator.visitVarInsn(opcode, slot, this.frame)?.pushToOperand()
         }
 
         fun visitIntInsn(opcode: Int, operand: Int) {

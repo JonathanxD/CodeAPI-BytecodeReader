@@ -75,7 +75,7 @@ public class TestRead {
         plainSourceGenerator.registerProcessor(new Processor<MagicPart>() {
             @Override
             public void process(MagicPart part, @NotNull TypedData data, @NotNull CodeProcessor<?> codeProcessor) {
-                //KeysKt.getAPPENDER().getOrNull(data).append(part.getObj().toString());
+                KeysKt.getAPPENDER().getOrNull(data).append("Magic["+part.getObj().toString()+"]");
             }
 
             @Override

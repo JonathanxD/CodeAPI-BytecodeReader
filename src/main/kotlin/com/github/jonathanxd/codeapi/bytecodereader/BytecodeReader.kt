@@ -27,7 +27,6 @@
  */
 package com.github.jonathanxd.codeapi.bytecodereader
 
-import com.github.jonathanxd.codeapi.CodePart
 import com.github.jonathanxd.codeapi.base.TypeDeclaration
 import com.github.jonathanxd.codeapi.bytecodereader.asm.ClassAnalyzer
 import org.objectweb.asm.ClassReader
