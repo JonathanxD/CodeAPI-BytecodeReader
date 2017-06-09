@@ -82,7 +82,7 @@ object ClassAnalyzer {
         TYPE_DECLARATION_REF.set(environment.data, ref)
 
         classNode.methods?.forEachAs { it: MethodNode ->
-            val analyze = MethodAnalyzer.analyze(it, environment)
+            val analyze = MethodAnalyzer.analyze(classNode.name, it, environment)
 
             when (analyze) {
                 is ConstructorDeclaration -> constructors += analyze

@@ -47,6 +47,9 @@ import com.github.jonathanxd.codeapi.util.require
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.*
+import org.objectweb.asm.tree.analysis.Analyzer
+import org.objectweb.asm.tree.analysis.BasicInterpreter
+import org.objectweb.asm.tree.analysis.SourceInterpreter
 import java.util.EnumSet
 import java.util.logging.Logger
 
@@ -54,7 +57,15 @@ object MethodAnalyzer {
     private val logger = Logger.getLogger("CodeAPI_MethodAnalyzer")
 
     @Suppress("UNCHECKED_CAST")
-    fun analyze(methodNode: MethodNode, environment: Environment): MethodDeclarationBase {
+    fun analyze(owner: String, methodNode: MethodNode, environment: Environment): MethodDeclarationBase {
+
+
+        val analyzer = Analyzer(SourceInterpreter())
+
+        val analyzee = analyzer.analyze(owner, methodNode)
+
+        println(analyzee)
+
         val methodName = methodNode.name
         val desc = methodNode.desc
         val asmParameters = methodNode.parameters as? List<ParameterNode> ?: emptyList()
