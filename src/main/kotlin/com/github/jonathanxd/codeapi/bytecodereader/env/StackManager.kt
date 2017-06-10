@@ -32,6 +32,7 @@ import com.github.jonathanxd.codeapi.bytecodereader.extra.MagicPart
 import com.github.jonathanxd.codeapi.bytecodereader.util.IntNode
 import com.github.jonathanxd.codeapi.bytecodereader.util.filterWithIndex
 import com.github.jonathanxd.codeapi.bytecodereader.util.remove
+import org.objectweb.asm.Label
 import java.util.ArrayList
 import java.util.NoSuchElementException
 
@@ -100,7 +101,12 @@ class StackManager<E> {
         throw IllegalStateException("Cannot peek value from stack.")
     }
 
-    fun peekFind(predicate: (E) -> Boolean): IntNode<E> {
+
+    fun peekFind(predicate: (E) -> Boolean): IntNode<E> =
+            peekFindOrNull(predicate)
+                    ?: throw IllegalStateException("Cannot peek value from stack/Cannot find value in stack.")
+
+    fun peekFindOrNull(predicate: (E) -> Boolean): IntNode<E>? {
         this.checkEmpty()
 
         for (i in this.stack.indices.reversed()) {
@@ -110,7 +116,7 @@ class StackManager<E> {
                 return IntNode(i, codeInstruction)
         }
 
-        throw IllegalStateException("Cannot peek value from stack/Cannot find value in stack.")
+        return null
     }
 
     fun peek(): E {

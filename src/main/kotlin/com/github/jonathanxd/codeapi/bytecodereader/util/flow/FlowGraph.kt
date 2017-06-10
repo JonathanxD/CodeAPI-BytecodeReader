@@ -25,45 +25,32 @@
  *      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *      THE SOFTWARE.
  */
-package com.github.jonathanxd.codeapi.bytecodereader.util
+package com.github.jonathanxd.codeapi.bytecodereader.util.flow
 
 import com.github.jonathanxd.codeapi.CodeInstruction
-import com.github.jonathanxd.codeapi.bytecodereader.env.StackManager
-import com.github.jonathanxd.codeapi.bytecodereader.extra.MagicPart
+import com.github.jonathanxd.codeapi.operator.Operator
 import org.objectweb.asm.Label
-import org.objectweb.asm.tree.AbstractInsnNode
-import org.objectweb.asm.tree.LabelNode
-import org.objectweb.asm.util.Printer
 
 /**
- * Unsafe treat **this** [Iterable] as [Iterable] of [U]
+ * Denotes an `if` node.
+ *
+ * This is like `CodeAPI IfExpr` but hold a [Target] instead of a body.
+ *
+ * The [position] property means the position in the bytecode. If target position is less than
+ * FlowNode position, then this flow node is an `while` statement.
+ *
+ * As the Reader does a forwarding analysis, an [next] node is holden.
  */
-@Suppress("UNCHECKED_CAST")
-inline fun <U> Iterable<*>.unsafeForEach(func: (U) -> Unit) {
-    (this as Iterable<U>).forEach(func)
-}
+data class FlowNode(val position: Int,
+                    val operation: Operator.Conditional,
+                    val expr1: CodeInstruction,
+                    val expr2: CodeInstruction,
+                    val target: Target,
+                    var body: Int = -1,
+                    var elseIndex: Int = -1,
+                    var previous: FlowNode? = null, // Flexible
+                    val next: FlowNode? = null)
 
-/**
- * Cast the elements of **this** [Iterable] to [U].
- */
-@Suppress("UNCHECKED_CAST")
-inline fun <reified U> Iterable<*>.mapAs() = this.map { it as U }
-
-/**
- * Foreach elements of this [Iterable] as [U]
- */
-@Suppress("UNCHECKED_CAST")
-inline fun <reified U> Iterable<*>.forEachAs(func: (U) -> Unit) = this.mapAs<U>().forEach(func)
-
-inline val Int.opcodeName: String get() = Printer.OPCODES[this].toLowerCase()
-
-
-
-/**
- * Finds [label] and returns the index of label (or -1 if label cannot be found).
- */
-fun findLabel(stackManager: StackManager<CodeInstruction>, insns: Array<AbstractInsnNode>, label: Label): Int =
-        stackManager.peekFindOrNull { it is MagicPart && it.obj == label }?.index
-                ?: insns.withIndex().find { it.value is LabelNode && (it.value as LabelNode).label == label }?.index
-                ?: -1
+data class Target(val position: Int,
+                  val label: Label)
 

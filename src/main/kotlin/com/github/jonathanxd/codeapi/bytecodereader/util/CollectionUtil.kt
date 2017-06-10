@@ -29,6 +29,11 @@
 
 package com.github.jonathanxd.codeapi.bytecodereader.util
 
+import org.objectweb.asm.tree.AbstractInsnNode
+import org.objectweb.asm.tree.FrameNode
+import org.objectweb.asm.tree.LabelNode
+import org.objectweb.asm.tree.LineNumberNode
+
 inline fun <T> List<T>.filterWithIndex(predicate: (T) -> Boolean): MutableList<Pair<Int, T>> {
     return this.filterIndexedAndMap({ _, t -> predicate(t) }, { i, t -> Pair(i, t) })
 }
@@ -92,4 +97,28 @@ inline fun <T> Array<T>.nextNodeMatch(pos: Int, predicate: (T) -> Boolean): Pair
         ++i
 
     return if (i < this.size) Pair(i, this[i]) else null
+}
+
+
+class ArrayIterator(val array: Array<AbstractInsnNode>): Iterator<AbstractInsnNode> {
+
+    var index = -1
+
+    override fun hasNext(): Boolean = index + 1 < array.size
+
+    fun nextValid(): AbstractInsnNode {
+        while(hasNext()) {
+            val next = next()
+
+            if(next !is FrameNode
+                    && next !is LineNumberNode
+                    && next !is LabelNode) // Make sure that next is a valid node for inspection
+                return next
+        }
+
+        throw NoSuchElementException()
+    }
+
+    override fun next(): AbstractInsnNode = array[++index]
+
 }

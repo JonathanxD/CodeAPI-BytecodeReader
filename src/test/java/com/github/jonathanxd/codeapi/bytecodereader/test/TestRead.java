@@ -41,7 +41,7 @@ public class TestRead {
     public void testRead() {
 
 
-        InputStream resourceAsStream = TestRead.class.getResourceAsStream("/TryWithResourcesTest_TryWithResourcesTestClass_Result.class");
+        InputStream resourceAsStream = TestRead.class.getResourceAsStream("/ComplexIfTest_ComplexIf_Result.class");
 
         byte[] bytes;
 

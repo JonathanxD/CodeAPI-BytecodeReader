@@ -155,7 +155,7 @@ object MethodAnalyzer {
                     is InvokeDynamicInsnNode -> this.visitInvokeDynamicInsn(it.name, it.desc, it.bsm, it.bsmArgs)
                     is LdcInsnNode -> this.visitLdcInsn(it.cst)
                     is IincInsnNode -> this.visitIincInsn(it.`var`, it.incr)
-                    is JumpInsnNode -> this.visitJumpInsn(it.opcode, it.label)
+                    is JumpInsnNode -> this.visitJumpInsn(array, it.opcode, i, it.label)
                     is LabelNode -> {
                         //labels += it
                         it.accept(OperandAddVisitor(this.frame.operandStack))
@@ -178,8 +178,8 @@ object MethodAnalyzer {
             return method.builder().parameters(parameters).body(source).build()
         }
 
-        fun visitJumpInsn(opcode: Int, label: LabelNode) {
-            VisitTranslator.visitJumpInsn(opcode, label, bodyStack, environment, frame, environment.data)?.pushToOperand()
+        fun visitJumpInsn(insns: Array<AbstractInsnNode>, opcode: Int, index: Int, label: LabelNode) {
+            VisitTranslator.visitJumpInsn(insns, opcode, label, bodyStack, environment, index, frame, environment.data)?.pushToOperand()
         }
 
         fun handleExceptionTable(insns: Array<AbstractInsnNode>, index: Int, tryCatchBlocks: List<TryCatchBlockNode>, label: LabelNode) {

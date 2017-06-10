@@ -34,10 +34,13 @@ import com.github.jonathanxd.codeapi.bytecodereader.env.StackManager
 import com.github.jonathanxd.codeapi.bytecodereader.extra.MagicPart
 import com.github.jonathanxd.codeapi.bytecodereader.extra.UnknownPart
 import com.github.jonathanxd.codeapi.bytecodereader.util.*
+import com.github.jonathanxd.codeapi.bytecodereader.util.flow.FlowNode
+import com.github.jonathanxd.codeapi.bytecodereader.util.flow.Target
 import com.github.jonathanxd.codeapi.common.CONSTRUCTOR
 import com.github.jonathanxd.codeapi.common.CodeNothing
 import com.github.jonathanxd.codeapi.factory.*
 import com.github.jonathanxd.codeapi.literal.Literals
+import com.github.jonathanxd.codeapi.operator.Operator
 import com.github.jonathanxd.codeapi.operator.Operators
 import com.github.jonathanxd.codeapi.type.CodeType
 import com.github.jonathanxd.codeapi.util.*
@@ -60,6 +63,8 @@ object VisitTranslator {
     private val logger = Logger.getLogger("CodeAPI_Translator")
 
     val TRY_DATA = typedKeyOf<MutableList<TryData>>("TRY_DATA")
+
+    val FLOW_DATA = typedKeyOf<MutableList<FlowNode>>("FLOW_DATA")
 
     val CATCH_BLOCKS = typedKeyOf<ListHashMap<@Named("Start") Label, CatchData>>("CATCH_BLOCKS")
 
@@ -232,13 +237,17 @@ object VisitTranslator {
             val type = info?.type ?: pop.type
             val name = info?.name ?: "var$slot"
 
-            return if (pop !is CatchVariable) {
+            val value = if(type.`is`(Types.BOOLEAN) && pop is Literals.IntLiteral)
+                if(pop.name == "1") Literals.TRUE else Literals.FALSE
+            else pop
+
+            return if (value !is CatchVariable) {
                 if (get == null) {
-                    val variable = variable(type, name, pop)
+                    val variable = variable(type, name, value)
                     frame.store(accessVariable(variable), slot)
                     variable
                 } else {
-                    setVariableValue(type, name, pop)
+                    setVariableValue(type, name, value)
                 }
             } else {
                 null
@@ -591,14 +600,14 @@ object VisitTranslator {
 
     }
 
-    fun visitJumpInsn(opcode: Int,
+    fun visitJumpInsn(insns: Array<AbstractInsnNode>,
+                      opcode: Int,
                       label: LabelNode,
                       bodyStack: StackManager<CodeSource>,
                       typeResolver: TypeResolver,
+                      index: Int,
                       frame: EmulatedFrame,
                       data: TypedData): CodeInstruction? {
-        /*val take: List<CodePart>
-        val operator: Operator
 
         // Convert the `if` to a CodeAPI if expression, the jump insn means 'branch if', then the operation should be "inverted"
         // but some problems may occur for "OR" if operations, so the `if` translation will occur later.
@@ -610,29 +619,67 @@ object VisitTranslator {
         // is a good approach, but I don't wan't to skip `if arguments` because to do that I need to handle de frame and locals)
         // **It is not easy**
 
+        // The if body is from the last if statement to the first if jump
+        // if an consecutive if statement jumps to another label, this label means
+        // inside of if, and is an || if operation, [TODO]
+
         // To translate while we should loop all instructions and find a GOTO to current label.
-        when (opcode) {
-            Opcodes.IFEQ -> {
-                take = frame.operandStack.pop(1) + Literals.TRUE
-                operator = Operators.EQUAL_TO
-            }
-            Opcodes.IFNE -> {
-                take = frame.operandStack.pop(1) + Literals.FALSE
-                operator = Operators.EQUAL_TO
-            }
-            Opcodes.IFLT -> {
-                take = frame.operandStack.pop(2)
-                operator = Operators.LESS_THAN
-            }
 
-            else -> {
-                take = emptyList()
-                operator = Operators.LESS_THAN
-            }
-        }*/
+        if(opcode == Opcodes.GOTO) {
+            val datas = FLOW_DATA.getOrNull(data)
 
-        //val args = frame.operandStack.pop(takeN)
-        return createInstruction("visitJumpInsn[opcode=${opcode.opcodeName}, label=${label.label}]")
+            if(datas != null) {
+                val last = datas.removeAt(datas.lastIndex)
+
+                datas += last.copy(body = index)
+
+
+            }
+        }
+
+        if(opcode.isValidIfExprJmp()) {
+
+            val operator = opcode.conditionalOperator
+            val arguments = opcode.getJmpArgs(frame)
+
+            val foundLabel = findLabel(frame.operandStack, insns, label.label)
+
+            require(foundLabel != -1) { "Label cannot be found in instruction array" }
+
+/*
+            val body = findBody()
+
+            println(body)
+*/
+            val node = FlowNode(
+                    position = index,
+                    expr1 = arguments[0],
+                    expr2 = arguments[1],
+                    operation = operator,
+                    target = Target(
+                            position = foundLabel,
+                            label = label.label
+                    )
+            )
+
+            val datas = FLOW_DATA.getOrSet(data, mutableListOf()) // Single instead of list?
+
+            if(datas.isNotEmpty()) {
+                val next = datas.removeAt(datas.lastIndex).copy(next = node)
+                node.previous = next
+                datas.add(next)
+            } else
+                datas += node
+
+
+
+
+            //val args = frame.operandStack.pop(takeN)
+            //return createInstruction("visitJumpInsn[opcode=${opcode.opcodeName}, label=${label.label}]")
+            return createInstruction("visitJumpInsn[opcode=${opcode.opcodeName}, label=${label.label}, operator=$operator, args=$arguments]")
+        } else {
+            return createInstruction("visitJumpInsn[opcode=${opcode.opcodeName}, label=${label.label}]")
+        }
     }
 
     // Extra
@@ -761,3 +808,60 @@ object VisitTranslator {
                     || this.opcode == Opcodes.LRETURN
                     || this.opcode == Opcodes.RETURN)
 }
+
+/*
+/**
+         * Finds where the if statement body starts
+         */
+        fun findBody(): Int {
+            //var flows = mutableListOf<String>() // Temporary string
+
+            var lindex = -1
+
+            val iterator = ArrayIterator(insns)
+
+            for(i in 0..index)
+                iterator.nextValid()
+
+            while(iterator.hasNext()) {
+                val insn = iterator.nextValid()
+
+                if (insn is JumpInsnNode)
+                    throw IllegalStateException("Unexpected jump insn")
+
+                if (!iterator.hasNext())
+                    break
+
+                val next = iterator.nextValid()
+
+                if(next is JumpInsnNode) {
+                    if(!next.opcode.isValidIfExprJmp())
+                        continue
+
+                    val args = next.opcode.argsSize
+
+                    if(args != 1)
+                        throw IllegalStateException("Invalid opcode, only one arg provided for '$args' jump insn. Position: ${iterator.index}.")
+                    lindex = iterator.index
+                } else {
+                    if (!iterator.hasNext())
+                        break
+
+                    val next2 = iterator.nextValid()
+
+                    if(next2 is JumpInsnNode) {
+
+                        val args = next2.opcode.argsSize
+
+                        if(args != 2)
+                            throw IllegalStateException("Invalid opcode, only two args provided for $args jump insn. Position: ${iterator.index}.")
+                    }
+
+                    lindex = iterator.index
+                }
+            }
+
+            return lindex
+        }
+
+ */

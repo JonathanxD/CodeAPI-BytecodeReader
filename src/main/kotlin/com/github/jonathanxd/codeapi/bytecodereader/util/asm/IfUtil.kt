@@ -41,3 +41,5 @@ fun Operator.Conditional.inverse(): Operator.Conditional {
         else -> throw IllegalArgumentException("Cannot get inverse operator of $this")
     }
 }
+
+
