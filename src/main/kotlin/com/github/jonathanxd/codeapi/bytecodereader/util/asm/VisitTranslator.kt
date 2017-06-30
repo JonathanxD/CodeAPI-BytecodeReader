@@ -36,11 +36,11 @@ import com.github.jonathanxd.codeapi.bytecodereader.extra.UnknownPart
 import com.github.jonathanxd.codeapi.bytecodereader.util.*
 import com.github.jonathanxd.codeapi.bytecodereader.util.flow.FlowNode
 import com.github.jonathanxd.codeapi.bytecodereader.util.flow.Target
+import com.github.jonathanxd.codeapi.bytecodereader.util.flow.buildIfExprs
 import com.github.jonathanxd.codeapi.common.CONSTRUCTOR
 import com.github.jonathanxd.codeapi.common.CodeNothing
 import com.github.jonathanxd.codeapi.factory.*
 import com.github.jonathanxd.codeapi.literal.Literals
-import com.github.jonathanxd.codeapi.operator.Operator
 import com.github.jonathanxd.codeapi.operator.Operators
 import com.github.jonathanxd.codeapi.type.CodeType
 import com.github.jonathanxd.codeapi.util.*
@@ -57,6 +57,20 @@ import java.util.ArrayList
 import java.util.Arrays
 import java.util.logging.Level
 import java.util.logging.Logger
+import kotlin.Any
+import kotlin.Array
+import kotlin.Boolean
+import kotlin.Exception
+import kotlin.IllegalArgumentException
+import kotlin.IndexOutOfBoundsException
+import kotlin.Int
+import kotlin.NoSuchElementException
+import kotlin.String
+import kotlin.Suppress
+import kotlin.Unit
+import kotlin.also
+import kotlin.let
+import kotlin.require
 
 object VisitTranslator {
 
@@ -237,8 +251,8 @@ object VisitTranslator {
             val type = info?.type ?: pop.type
             val name = info?.name ?: "var$slot"
 
-            val value = if(type.`is`(Types.BOOLEAN) && pop is Literals.IntLiteral)
-                if(pop.name == "1") Literals.TRUE else Literals.FALSE
+            val value = if (type.`is`(Types.BOOLEAN) && pop is Literals.IntLiteral)
+                if (pop.name == "1") Literals.TRUE else Literals.FALSE
             else pop
 
             return if (value !is CatchVariable) {
@@ -625,32 +639,30 @@ object VisitTranslator {
 
         // To translate while we should loop all instructions and find a GOTO to current label.
 
-        if(opcode == Opcodes.GOTO) {
+        if (opcode == Opcodes.GOTO) {
             val datas = FLOW_DATA.getOrNull(data)
 
-            if(datas != null) {
-                val last = datas.removeAt(datas.lastIndex)
-
-                datas += last.copy(body = index)
-
-
+            if (datas != null) {
+                val last = datas.last()
+                last.body = index
             }
         }
 
-        if(opcode.isValidIfExprJmp()) {
+        if (opcode.isValidIfExprJmp()) {
 
             val operator = opcode.conditionalOperator
             val arguments = opcode.getJmpArgs(frame)
+
 
             val foundLabel = findLabel(frame.operandStack, insns, label.label)
 
             require(foundLabel != -1) { "Label cannot be found in instruction array" }
 
-/*
-            val body = findBody()
+            /*
+                        val body = findBody()
 
-            println(body)
-*/
+                        println(body)
+            */
             val node = FlowNode(
                     position = index,
                     expr1 = arguments[0],
@@ -664,13 +676,29 @@ object VisitTranslator {
 
             val datas = FLOW_DATA.getOrSet(data, mutableListOf()) // Single instead of list?
 
-            if(datas.isNotEmpty()) {
-                val next = datas.removeAt(datas.lastIndex).copy(next = node)
-                node.previous = next
-                datas.add(next)
-            } else
-                datas += node
+            if (datas.isNotEmpty()) {
+                val previous = datas.removeAt(datas.lastIndex) // TODO: left
+                node.previous = previous
 
+                // If position of 'previous' element is less than position of node element
+                // Then the node element should be on RIGHT side of 'previous'
+                if (!previous.isInverse && previous.target.position != node.target.position)
+                    previous.right = node.also { it.isInverse = true }
+                else if (!previous.isInverse) previous.right = node
+                else if (previous.isInverse && previous.operation == node.operation)
+                    previous.left = node.also { it.isInverse = true }
+                else previous.left = node
+
+                /*if (!previous.isInverse && node.operation.inverse() == previous.operation) node.isInverse = true
+
+                if (node.target.position != previous.target.position && previous.isInverse) {
+                    previous.left = node
+                } else previous.right = node*/
+                datas.add(node)
+            } else {
+                datas += node
+            }
+            frame.operandStack.push(MagicPart(node))
 
 
 
@@ -680,6 +708,83 @@ object VisitTranslator {
         } else {
             return createInstruction("visitJumpInsn[opcode=${opcode.opcodeName}, label=${label.label}]")
         }
+    }
+    // TODO: Add left to all ifs of 'previous' property.
+    // Prev is the previous node, the right node, the next is the node which is on the left side of prev node
+    // The pos is the position of 'next' node
+    private fun funGenLeft(prev: FlowNode, next: FlowNode, pos: Int) {
+
+    }
+
+    fun visitLabel(insns: Array<AbstractInsnNode>,
+                   label: LabelNode,
+                   bodyStack: StackManager<CodeSource>,
+                   typeResolver: TypeResolver,
+                   index: Int,
+                   frame: EmulatedFrame,
+                   data: TypedData): CodeInstruction? {
+        val datas = FLOW_DATA.getOrNull(data)
+
+        if (datas != null && datas.isNotEmpty()) {
+            val last = datas.last()
+            val target = last.target
+
+            if (target.label == label.label) {
+
+                val start = frame.operandStack.peekFindReversed {
+                    it is MagicPart
+                            && it.obj is FlowNode
+                            && it.obj.position == last.position
+                }
+
+                val pos = index - 1
+                val insn = insns[pos]
+                var targetIndex = -1
+
+                if(insn is JumpInsnNode && insn.opcode == Opcodes.GOTO) {
+                    // Checks if the target label is after current label
+                    targetIndex = insns.indexOfFirst { it is LabelNode && it.label == insn.label.label }
+
+                    if(targetIndex != -1) {
+
+                        if (targetIndex > index) {
+                            last.elseRange = pos..targetIndex
+                        }
+                    }
+                }
+
+                val sub2 = frame.operandStack.sub(start.index, frame.operandStack.size)
+
+                var first = last
+
+                while (first.previous != null) { first = first.previous ?: break }
+
+                val ifStm = IfStatement(first.buildIfExprs(true),
+                        CodeSource.fromIterable(frame.operandStack.filter(sub2)),
+                        MutableCodeSource.create()) // TODO: Else
+
+                last.definedStm = ifStm
+
+                sub2.clear()
+
+                if(targetIndex == -1)
+                    datas.removeAt(datas.lastIndex)
+
+                return ifStm
+            } else if(last.elseRange.endInclusive == index) {
+                val definedStm = last.definedStm
+                if(definedStm != null) {
+                    val peek = frame.operandStack.peekFind { it == definedStm }
+                    val sb = frame.operandStack.sub(peek.index + 1, frame.operandStack.size)
+
+                    (definedStm.elseStatement as MutableCodeSource).addAll(sb)
+                    datas.removeAt(datas.lastIndex)
+                    sb.clear()
+                }
+            }
+        }
+
+        return null
     }
 
     // Extra

@@ -107,9 +107,32 @@ class StackManager<E> {
                     ?: throw IllegalStateException("Cannot peek value from stack/Cannot find value in stack.")
 
     fun peekFindOrNull(predicate: (E) -> Boolean): IntNode<E>? {
+        if(this.isEmpty)
+            return null
+
         this.checkEmpty()
 
         for (i in this.stack.indices.reversed()) {
+            val codeInstruction = this.stack[i]
+
+            if (predicate(codeInstruction))
+                return IntNode(i, codeInstruction)
+        }
+
+        return null
+    }
+
+    fun peekFindReversed(predicate: (E) -> Boolean): IntNode<E> =
+            peekFindReversedOrNull(predicate)
+                    ?: throw IllegalStateException("Cannot peek value from stack/Cannot find value in stack.")
+
+    fun peekFindReversedOrNull(predicate: (E) -> Boolean): IntNode<E>? {
+        if(this.isEmpty)
+            return null
+
+        this.checkEmpty()
+
+        for (i in this.stack.indices) {
             val codeInstruction = this.stack[i]
 
             if (predicate(codeInstruction))

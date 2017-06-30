@@ -158,6 +158,7 @@ object MethodAnalyzer {
                     is JumpInsnNode -> this.visitJumpInsn(array, it.opcode, i, it.label)
                     is LabelNode -> {
                         //labels += it
+                        this.visitLabel(array, i, it)
                         it.accept(OperandAddVisitor(this.frame.operandStack))
                         this.handleExceptionTable(array, i, exceptionTable, it)
                     }
@@ -180,6 +181,10 @@ object MethodAnalyzer {
 
         fun visitJumpInsn(insns: Array<AbstractInsnNode>, opcode: Int, index: Int, label: LabelNode) {
             VisitTranslator.visitJumpInsn(insns, opcode, label, bodyStack, environment, index, frame, environment.data)?.pushToOperand()
+        }
+
+        fun visitLabel(insns: Array<AbstractInsnNode>, index: Int, label: LabelNode) {
+            VisitTranslator.visitLabel(insns, label, bodyStack, environment, index, frame, environment.data)?.pushToOperand()
         }
 
         fun handleExceptionTable(insns: Array<AbstractInsnNode>, index: Int, tryCatchBlocks: List<TryCatchBlockNode>, label: LabelNode) {

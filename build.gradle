@@ -25,8 +25,8 @@ apply from: project(":CodeAPI").file("gradle/common.gradle")
 dependencies {
     compile project(":CodeAPI")
 
-    testCompile 'com.github.JonathanxD:CodeAPI-SourceWriter:alpha-4.0.0-source-4'
-    testCompile 'com.github.JonathanxD:CodeAPI-BytecodeWriter:alpha-4.0.0-bytecode-8'
+    testCompile 'com.github.JonathanxD:CodeAPI-SourceWriter:alpha-4.0.0-source-5'
+    testCompile 'com.github.JonathanxD:CodeAPI-BytecodeWriter:alpha-4.0.0-bytecode-10'
     compile group: 'org.ow2.asm', name: 'asm-all', version: '5.1'
     testCompile project(path: ':CodeAPI', configuration: 'tests')
 }

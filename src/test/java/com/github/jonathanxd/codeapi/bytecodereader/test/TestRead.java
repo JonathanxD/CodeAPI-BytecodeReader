@@ -40,22 +40,29 @@ public class TestRead {
     @Test
     public void testRead() {
 
+        boolean gen0 = true;
+        InputStream resourceAsStream = TestRead.class.getResourceAsStream("/lvl2/SimpleIfX2.class");
+        InputStream resourceAsStream2 = TestRead.class.getResourceAsStream("/lvl2/SimpleIfZ.class");
 
-        InputStream resourceAsStream = TestRead.class.getResourceAsStream("/ComplexIfTest_ComplexIf_Result.class");
-
-        byte[] bytes;
+        byte[] bytes = new byte[0];
+        byte[] bytes2;
 
         try {
-            bytes = TestRead.toByteArray(resourceAsStream);
+            if(gen0)
+                bytes = TestRead.toByteArray(resourceAsStream);
+            bytes2 = TestRead.toByteArray(resourceAsStream2);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
         BytecodeReader bytecodeReader = new BytecodeReader();
 
-        TypeDeclaration read = bytecodeReader.read(bytes);
+        TypeDeclaration read = null;
 
-        System.out.println(print(read, true));
+        if(gen0)
+            read = bytecodeReader.read(bytes);
+
+        TypeDeclaration read2 = bytecodeReader.read(bytes2);
 
 
         PlainSourceGenerator plainSourceGenerator = new PlainSourceGenerator();
@@ -84,9 +91,15 @@ public class TestRead {
             }
         }, MagicPart.class);
 
-        String gen = plainSourceGenerator.process(read);
+        if(gen0) {
+            String gen = plainSourceGenerator.process(read);
+            System.out.println(gen);
+            System.out.println("====================================================================");
+        }
 
-        System.out.println(gen);
+        String gen2 = plainSourceGenerator.process(read2);
+
+        System.out.println(gen2);
     }
 
     private String print(CodePart part, boolean printType) {
@@ -100,7 +113,7 @@ public class TestRead {
 
             sb.append("\n{\n");
             CodeSource body = ((BodyHolder) part).getBody();
-            sb.append("    " + body.stream().map(codePart -> print(codePart, false)).collect(Collectors.joining(",    \n    ")));
+            sb.append("    ").append(body.stream().map(codePart -> print(codePart, false)).collect(Collectors.joining(",    \n    ")));
 
             sb.append("\n}");
 
