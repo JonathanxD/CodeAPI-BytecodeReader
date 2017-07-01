@@ -57,20 +57,7 @@ import java.util.ArrayList
 import java.util.Arrays
 import java.util.logging.Level
 import java.util.logging.Logger
-import kotlin.Any
-import kotlin.Array
-import kotlin.Boolean
-import kotlin.Exception
-import kotlin.IllegalArgumentException
-import kotlin.IndexOutOfBoundsException
-import kotlin.Int
 import kotlin.NoSuchElementException
-import kotlin.String
-import kotlin.Suppress
-import kotlin.Unit
-import kotlin.also
-import kotlin.let
-import kotlin.require
 
 object VisitTranslator {
 
@@ -674,6 +661,25 @@ object VisitTranslator {
                     )
             )
 
+            val targetInsn = insns[foundLabel]
+
+            // Find target If Expression
+            if (targetInsn is LabelNode) {
+                val x = foundLabel + 1
+
+                val targetF = getNextIfInsn(insns, x)
+
+                if (targetF != -1) {
+                    node.targetFlow = targetF
+                }
+            }
+
+            val next = getNextIfInsn(insns, index + 1)
+
+            if (next != -1) {
+                node.nextFlow = next
+            }
+
             val datas = FLOW_DATA.getOrSet(data, mutableListOf()) // Single instead of list?
 
             if (datas.isNotEmpty()) {
@@ -682,12 +688,36 @@ object VisitTranslator {
 
                 // If position of 'previous' element is less than position of node element
                 // Then the node element should be on RIGHT side of 'previous'
-                if (!previous.isInverse && previous.target.position != node.target.position)
-                    previous.right = node.also { it.isInverse = true }
-                else if (!previous.isInverse) previous.right = node
-                else if (previous.isInverse && previous.operation == node.operation)
-                    previous.left = node.also { it.isInverse = true }
-                else previous.left = node
+                if (!previous.isInverse && previous.target.position != node.target.position) {
+                    node.isInverse = true
+                    //previous.right = node.also { it.isInverse = true }
+                    //addEdge(previous, node)
+                } else if (!previous.isInverse) {
+                    // previous.right = node
+                    //addEdge(previous, node)
+                } else if (previous.isInverse
+                        && previous.operation == node.operation
+                        && previous.target.position == node.target.position) {
+                    node.isInverse = true
+                    //previous.left = node
+                    //addEdge(previous, node)
+                } else {
+                    //addEdge(previous, node)
+                    //previous.left = node
+                }
+
+                if (node.isInverse) {
+                    var prev: FlowNode? = previous
+
+                    while(prev != null && prev.body == -1) {
+                        prev.body = node.target.position
+                        prev = previous.previous
+                    }
+
+                    node.body = node.target.position
+                }
+
+                //addEdge(previous, node)
 
                 /*if (!previous.isInverse && node.operation.inverse() == previous.operation) node.isInverse = true
 
@@ -709,12 +739,176 @@ object VisitTranslator {
             return createInstruction("visitJumpInsn[opcode=${opcode.opcodeName}, label=${label.label}]")
         }
     }
+
+    fun getNextIfInsn(insns: Array<AbstractInsnNode>, start: Int): Int {
+        val isUseless = {
+            node: AbstractInsnNode ->
+            node is LineNumberNode
+                    || node is LabelNode
+                    || node is FrameNode
+        }
+
+        var x = start
+
+        while (x < insns.size && isUseless(insns[x])) {
+            ++x
+        }
+
+        val args = mutableListOf<AbstractInsnNode>()
+
+        while (x < insns.size
+                && (insns[x] !is JumpInsnNode || isUseless(insns[x]))) {
+            val inx = insns[x]
+
+            if (!isUseless(inx))
+                args += inx
+
+            ++x
+        }
+
+        if (x < insns.size) {
+            val insnNode = insns[x]
+
+            if (insnNode is JumpInsnNode) {
+                if (insnNode.opcode.isValidIfExprJmp()) {
+                    if (args.size == insnNode.opcode.argsSize) {
+                        return x
+                    }
+                }
+            }
+        }
+
+        return -1
+    }
+
+
+    private fun addEdges(node: FlowNode) {
+        val list = mutableListOf<FlowNode>()
+
+        if (!node.isInitialized) {
+            var currNode: FlowNode? = node
+
+            while (currNode != null) {
+                list.add(0, currNode)
+                currNode = currNode.previous
+            }
+        }
+
+        addEdges(list)
+    }
+
+    private fun addEdges(nodes: List<FlowNode>) {
+
+        if (nodes.size == 1) {
+            nodes.first().isInitialized = true
+            return
+        }
+
+        var index = 0
+
+        fun FlowNode.findTarget() = nodes.firstOrNull { it != this && it.position == this.targetFlow }
+        fun FlowNode.findRight() = nodes.firstOrNull { it != this && it.position == this.nextFlow }
+
+        fun FlowNode.findSameTarget() =
+                if (index + 1 >= nodes.size)
+                    null
+                else nodes.subList(index + 1, nodes.size).firstOrNull { it != this && it.targetFlow == this.targetFlow }
+
+        tailrec fun FlowNode.appendToRight(node: FlowNode): Unit =
+                if (this.right == null) this.right = node else this.right!!.appendToRight(node)
+
+        tailrec fun FlowNode.appendToLeft(node: FlowNode): Unit =
+                if (this.left == null) this.left = node else this.left!!.appendToLeft(node)
+
+        fun FlowNode.hasOnLeft(node: FlowNode): Boolean =
+                (this.left != null && (this.left!! == this || this.left!!.hasOnLeft(node)))
+                        || (node.left != null && (node.left!! == this || node.left!!.hasOnLeft(this)))
+
+        fun FlowNode.hasOnRight(node: FlowNode): Boolean =
+                (this.right != null && (this.right!! == this || this.right!!.hasOnRight(node)))
+                        || (node.right != null && (node.right!! == this || node.right!!.hasOnRight(this)))
+
+        var last: FlowNode? = null
+
+        while (index < nodes.size) {
+            val it = nodes[index]
+
+            it.isInitialized = true
+
+            val rightNode = it.findRight()
+            val leftNode = it.findTarget()
+
+            if(rightNode != null) {
+                if(!it.isInverse)
+                    it.appendToRight(rightNode)
+                else
+                    it.appendToLeft(rightNode)
+            }
+
+            if(leftNode != null && !it.isInverse) {
+                it.appendToLeft(leftNode)
+            }
+
+            /*val target = it.findTarget()
+            val sameTarget = it.findSameTarget()
+
+            if (target != null) {
+                //if (!it.hasOnLeft(target))
+                    it.appendToLeft(target)
+            }
+
+            if (sameTarget != null) {
+                //if (!it.hasOnRight(sameTarget))
+                    it.appendToRight(sameTarget)
+            }
+            if (target == null && last != null && it.isInverse && !last.isInverse && last.operation == it.operation) {
+                //if (!last!!.hasOnLeft(it))
+                    last.appendToLeft(it)
+            }
+
+            if (sameTarget == null && last != null && it.isInverse) {
+                //if (!last!!.hasOnRight(it))
+                    last.appendToRight(it)
+            } else {
+            }*/
+
+            last = it
+
+            ++index
+        }
+    }
+
     // TODO: Add left to all ifs of 'previous' property.
     // Prev is the previous node, the right node, the next is the node which is on the left side of prev node
     // The pos is the position of 'next' node
-    private fun funGenLeft(prev: FlowNode, next: FlowNode, pos: Int) {
+    private fun addEdge(prev: FlowNode, next: FlowNode) {
+        var currentPrev: FlowNode? = prev
 
+        while (currentPrev != null) {
+            val target = currentPrev.targetFlow
+
+            if (currentPrev != next) {
+
+                if (target != -1 && target == next.position) {
+                    if (currentPrev.left == null)
+                        currentPrev.left = next
+                } else if (target == next.targetFlow) {
+                    if (currentPrev.right == null)
+                        currentPrev.right = next
+                } else if (target == next.targetFlow
+                        && currentPrev.isInverse && currentPrev.operation == next.operation) {
+                    if (currentPrev.left == null)
+                        currentPrev.left = next
+                } else /*if (target == next.targetFlow)*/ {
+                    if (currentPrev.left == null)
+                        currentPrev.left = next
+                }
+            }
+
+            currentPrev = currentPrev.previous
+        }
     }
+
 
     fun visitLabel(insns: Array<AbstractInsnNode>,
                    label: LabelNode,
@@ -741,11 +935,11 @@ object VisitTranslator {
                 val insn = insns[pos]
                 var targetIndex = -1
 
-                if(insn is JumpInsnNode && insn.opcode == Opcodes.GOTO) {
+                if (insn is JumpInsnNode && insn.opcode == Opcodes.GOTO) {
                     // Checks if the target label is after current label
                     targetIndex = insns.indexOfFirst { it is LabelNode && it.label == insn.label.label }
 
-                    if(targetIndex != -1) {
+                    if (targetIndex != -1) {
 
                         if (targetIndex > index) {
                             last.elseRange = pos..targetIndex
@@ -757,7 +951,11 @@ object VisitTranslator {
 
                 var first = last
 
-                while (first.previous != null) { first = first.previous ?: break }
+                while (first.previous != null) {
+                    first = first.previous ?: break
+                }
+
+                addEdges(last)
 
                 val ifStm = IfStatement(first.buildIfExprs(true),
                         CodeSource.fromIterable(frame.operandStack.filter(sub2)),
@@ -767,13 +965,13 @@ object VisitTranslator {
 
                 sub2.clear()
 
-                if(targetIndex == -1)
+                if (targetIndex == -1)
                     datas.removeAt(datas.lastIndex)
 
                 return ifStm
-            } else if(last.elseRange.endInclusive == index) {
+            } else if (last.elseRange.endInclusive == index) {
                 val definedStm = last.definedStm
-                if(definedStm != null) {
+                if (definedStm != null) {
                     val peek = frame.operandStack.peekFind { it == definedStm }
                     val sb = frame.operandStack.sub(peek.index + 1, frame.operandStack.size)
 

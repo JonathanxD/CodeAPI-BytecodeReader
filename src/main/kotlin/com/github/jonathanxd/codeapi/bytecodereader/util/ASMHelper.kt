@@ -29,7 +29,6 @@ package com.github.jonathanxd.codeapi.bytecodereader.util
 
 import com.github.jonathanxd.codeapi.CodeInstruction
 import com.github.jonathanxd.codeapi.bytecodereader.env.StackManager
-import com.github.jonathanxd.codeapi.bytecodereader.extra.MagicPart
 import org.objectweb.asm.Label
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.LabelNode
@@ -58,12 +57,22 @@ inline fun <reified U> Iterable<*>.forEachAs(func: (U) -> Unit) = this.mapAs<U>(
 inline val Int.opcodeName: String get() = Printer.OPCODES[this].toLowerCase()
 
 
-
 /**
  * Finds [label] and returns the index of label (or -1 if label cannot be found).
  */
 fun findLabel(stackManager: StackManager<CodeInstruction>, insns: Array<AbstractInsnNode>, label: Label): Int =
-        stackManager.peekFindOrNull { it is MagicPart && it.obj == label }?.index
-                ?: insns.withIndex().find { it.value is LabelNode && (it.value as LabelNode).label == label }?.index
+        /*stackManager.peekFindOrNull { it is MagicPart && it.obj == label }?.index*/
+        insns.withIndex().find { it.value is LabelNode && (it.value as LabelNode).label == label }?.index
                 ?: -1
 
+inline fun loopIgnoringUseless(insns: Array<AbstractInsnNode>,
+                               start: Int,
+                               useLess: (AbstractInsnNode) -> Boolean,
+                               func: (Int, AbstractInsnNode) -> Boolean) {
+
+    for (i in start..insns.size - 1) {
+        if (!useLess(insns[i]))
+            if (!func(i, insns[i]))
+                break
+    }
+}
