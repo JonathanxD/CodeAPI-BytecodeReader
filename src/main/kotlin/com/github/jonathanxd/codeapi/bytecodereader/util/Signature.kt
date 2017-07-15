@@ -28,9 +28,11 @@
 package com.github.jonathanxd.codeapi.bytecodereader.util
 
 import com.github.jonathanxd.codeapi.generic.GenericSignature
+import com.github.jonathanxd.codeapi.type.CodeType
 import com.github.jonathanxd.codeapi.type.GenericType
+import java.lang.reflect.Type
 
-class Signature(val signature: GenericSignature, val superType: GenericType?, interfaces: Array<GenericType>) {
-    val interfaces: Array<GenericType> = interfaces
+class Signature(val signature: GenericSignature, val superType: Type, interfaces: Array<Type>) {
+    val interfaces: Array<Type> = interfaces
         get() = field.clone()
 }

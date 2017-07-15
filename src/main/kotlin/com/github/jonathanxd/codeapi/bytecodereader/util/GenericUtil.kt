@@ -28,16 +28,18 @@
 package com.github.jonathanxd.codeapi.bytecodereader.util
 
 import com.github.jonathanxd.codeapi.generic.GenericSignature
+import com.github.jonathanxd.codeapi.type.CodeType
 import com.github.jonathanxd.codeapi.type.Generic
 import com.github.jonathanxd.codeapi.type.GenericType
 import com.github.jonathanxd.codeapi.util.*
+import java.lang.reflect.Type
 import java.text.CharacterIterator
 import java.text.StringCharacterIterator
 
 object GenericUtil {
-    fun parseFull(typeResolver: TypeResolver, signature: String?): Signature {
+    fun parseFull(typeResolver: TypeResolver, signature: String?, rSuperType: Type, itfs: List<Type>): Signature {
         if (signature == null || signature.isEmpty()) {
-            return Signature(GenericSignature.empty(), null, emptyArray())
+            return Signature(GenericSignature.empty(), rSuperType, emptyArray())
         }
 
         val genericSignature = GenericUtil.parse(typeResolver, signature)
@@ -64,7 +66,11 @@ object GenericUtil {
             str += type.descName
         }
 
-        return Signature(genericSignature, superType!!, interfaces.toTypedArray())
+        val pItfs = if (interfaces.isEmpty() && itfs.isNotEmpty()) itfs
+        else if (interfaces.size < itfs.size) interfaces + itfs.subList(interfaces.size, itfs.size)
+        else interfaces
+
+        return Signature(genericSignature, superType ?: rSuperType, pItfs.toTypedArray())
     }
 
     fun parse(typeResolver: TypeResolver, str: String?): GenericSignature? {
