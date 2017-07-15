@@ -28,32 +28,37 @@
 package com.github.jonathanxd.codeapi.bytecodereader.util
 
 import com.github.jonathanxd.codeapi.generic.GenericSignature
-import com.github.jonathanxd.codeapi.type.CodeType
 import com.github.jonathanxd.codeapi.type.Generic
 import com.github.jonathanxd.codeapi.type.GenericType
 import com.github.jonathanxd.codeapi.util.*
-import java.lang.reflect.Type
 import java.text.CharacterIterator
 import java.text.StringCharacterIterator
 
 object GenericUtil {
-    fun parseFull(typeResolver: TypeResolver, signature: String?, rSuperType: Type, itfs: List<Type>): Signature {
+    fun parseFull(typeResolver: TypeResolver, signature: String?): Signature {
         if (signature == null || signature.isEmpty()) {
-            return Signature(GenericSignature.empty(), rSuperType, emptyArray())
+            return Signature(GenericSignature.empty(), null, emptyArray())
         }
 
-        val genericSignature = GenericUtil.parse(typeResolver, signature)
+
+        val genericSignature =
+                if (signature.startsWith("<")) GenericUtil.parse(typeResolver, signature)
+                else GenericSignature.empty()
         var superType: GenericType? = null
         val interfaces = mutableListOf<GenericType>()
 
-        var str = genericSignature!!.genericSignatureToDescriptor()
+        val str  =
+                StringBuilder(
+                if(genericSignature.isNotEmpty) genericSignature.genericSignatureToDescriptor()
+                else ""
+                )
 
         while (signature.length > str.length && signature.startsWith(str)) {
             val sub = signature.substring(str.length)
 
             val sign = parse(typeResolver, sub)
 
-            if (sign == null || sign.types.size != 1)
+            if (sign.types.size != 1)
                 break
 
             val type = sign.types[0]
@@ -63,27 +68,23 @@ object GenericUtil {
             else
                 interfaces.add(type)
 
-            str += type.descName
+            str.append(type.javaSpecName)
         }
 
-        val pItfs = if (interfaces.isEmpty() && itfs.isNotEmpty()) itfs
-        else if (interfaces.size < itfs.size) interfaces + itfs.subList(interfaces.size, itfs.size)
-        else interfaces
-
-        return Signature(genericSignature, superType ?: rSuperType, pItfs.toTypedArray())
+        return Signature(genericSignature, superType, interfaces.toTypedArray())
     }
 
-    fun parse(typeResolver: TypeResolver, str: String?): GenericSignature? {
+    fun parse(typeResolver: TypeResolver, str: String?): GenericSignature {
         if (str == null || str.isEmpty()) {
             return GenericSignature.empty()
         } else {
 
             val stringCharacterIterator = StringCharacterIterator(str)
 
-            if (str.startsWith("<")) {
-                return parse(stringCharacterIterator, typeResolver)
+            return if (str.startsWith("<")) {
+                parse(stringCharacterIterator, typeResolver)
             } else {
-                return GenericSignature.create(parseTypeOrVar(stringCharacterIterator, typeResolver)!!)
+                GenericSignature.create(parseTypeOrVar(stringCharacterIterator, typeResolver)!!)
             }
 
         }

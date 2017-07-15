@@ -44,6 +44,10 @@ class StackManager<E> {
     val size: Int
         get() = stack.size
 
+    fun dup() {
+        this.push(this.peek())
+    }
+
     fun push(part: E) {
         this.stack.add(part)
     }

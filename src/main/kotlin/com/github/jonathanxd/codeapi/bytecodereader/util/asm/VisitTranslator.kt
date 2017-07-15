@@ -71,10 +71,17 @@ object VisitTranslator {
 
     fun visitInsn(opcode: Int, frame: EmulatedFrame): CodeInstruction? {
         when (opcode) {
-            Opcodes.DUP, // Handling DUP* is very hard for CodeAPI
+            Opcodes.DUP -> {
+                frame.operandStack.dup()
+                return null
+            }
+            // Handling DUP* is very hard for CodeAPI
             Opcodes.DUP_X1, Opcodes.DUP_X2, Opcodes.DUP2, Opcodes.DUP2_X1, Opcodes.DUP2_X2 -> return null
             Opcodes.NOP,
-            Opcodes.POP, // Ignore POP
+            Opcodes.POP -> {
+                //frame.operandStack.pop()
+                return null // TODO: Remove: Ignore POP
+            }
             Opcodes.POP2, // Ignore POP
             Opcodes.SWAP, // Need review
             Opcodes.LCMP, // TODO: If Expression translation

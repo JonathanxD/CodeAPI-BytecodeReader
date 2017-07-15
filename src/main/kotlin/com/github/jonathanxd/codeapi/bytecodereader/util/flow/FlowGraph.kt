@@ -161,7 +161,7 @@ fun simplifyGroup(group: IfGroup): List<CodeInstruction> {
     val container: MutableContainer<Pair<Int, IfExpr?>> = MutableContainer.of(Pair(-1, null))
     if(allLeftIsEqualTo(group, container)) {
         val expr = container.get().second!!
-        return simplifyReg(group, container) + Operators.OR + expr
+        return listOf(IfGroup(simplifyReg(group, container)), Operators.OR, expr)
     }
     return toCodeAPIExprs(group.expressions)
 }

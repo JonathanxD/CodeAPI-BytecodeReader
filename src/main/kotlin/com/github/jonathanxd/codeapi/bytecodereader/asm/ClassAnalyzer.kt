@@ -36,6 +36,7 @@ import com.github.jonathanxd.codeapi.bytecodereader.util.asm.ModifierUtil
 import com.github.jonathanxd.codeapi.bytecodereader.util.forEachAs
 import com.github.jonathanxd.codeapi.type.GenericType
 import com.github.jonathanxd.codeapi.type.TypeRef
+import com.github.jonathanxd.codeapi.util.`is`
 import com.github.jonathanxd.codeapi.util.canonicalName
 import com.github.jonathanxd.codeapi.util.codeType
 import com.github.jonathanxd.codeapi.util.genericTypesToDescriptor
@@ -75,7 +76,7 @@ object ClassAnalyzer {
         val fields = mutableListOf<FieldDeclaration>()
         val constructors = mutableListOf<ConstructorDeclaration>()
         val methods = mutableListOf<MethodDeclaration>()
-        var staticBlock: StaticBlock = StaticBlock(Comments.Absent, emptyList(), CodeSource.empty())
+        var staticBlock = StaticBlock(Comments.Absent, emptyList(), CodeSource.empty())
 
         val ref = TypeRef(type.canonicalName, isInterface)
 

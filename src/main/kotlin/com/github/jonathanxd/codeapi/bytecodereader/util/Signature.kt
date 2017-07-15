@@ -32,7 +32,7 @@ import com.github.jonathanxd.codeapi.type.CodeType
 import com.github.jonathanxd.codeapi.type.GenericType
 import java.lang.reflect.Type
 
-class Signature(val signature: GenericSignature, val superType: Type, interfaces: Array<Type>) {
+class Signature(val signature: GenericSignature, val superType: Type?, interfaces: Array<Type>) {
     val interfaces: Array<Type> = interfaces
         get() = field.clone()
 }

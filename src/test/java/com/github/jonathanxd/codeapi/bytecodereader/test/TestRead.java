@@ -41,7 +41,7 @@ public class TestRead {
     public void testRead() {
 
         boolean gen0 = true;
-        InputStream resourceAsStream = TestRead.class.getResourceAsStream("/lvl2/SimpleIfX.class");
+        InputStream resourceAsStream = TestRead.class.getResourceAsStream("/EventSys_listener_if_test.class");
         InputStream resourceAsStream2 = TestRead.class.getResourceAsStream("/lvl2/SimpleIfZ.class");
 
         byte[] bytes = new byte[0];
