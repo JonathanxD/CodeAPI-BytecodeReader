@@ -1,0 +1,110 @@
+Classfile /home/jonathan/workspace/Kores-BytecodeReader/src/test/resources/lvl2/NestedIf2.class
+  Last modified 1 de fev de 2018; size 633 bytes
+  MD5 checksum 1377b7aada75785da34f89316b77adad
+  Compiled from "NestedIf2.java"
+public class NestedIf2
+  minor version: 0
+  major version: 52
+  flags: (0x0021) ACC_PUBLIC, ACC_SUPER
+  this_class: #8                          // NestedIf2
+  super_class: #9                         // java/lang/Object
+  interfaces: 0, fields: 0, methods: 2, attributes: 1
+Constant pool:
+   #1 = Methodref          #9.#26         // java/lang/Object."<init>":()V
+   #2 = Fieldref           #27.#28        // java/lang/System.out:Ljava/io/PrintStream;
+   #3 = String             #29            // starth
+   #4 = Methodref          #30.#31        // java/io/PrintStream.println:(Ljava/lang/String;)V
+   #5 = String             #32            // a || b
+   #6 = String             #33            // enda
+   #7 = String             #34            // endh
+   #8 = Class              #35            // NestedIf2
+   #9 = Class              #36            // java/lang/Object
+  #10 = Utf8               <init>
+  #11 = Utf8               ()V
+  #12 = Utf8               Code
+  #13 = Utf8               LineNumberTable
+  #14 = Utf8               LocalVariableTable
+  #15 = Utf8               this
+  #16 = Utf8               LNestedIf2;
+  #17 = Utf8               h
+  #18 = Utf8               (ZZZ)V
+  #19 = Utf8               a
+  #20 = Utf8               Z
+  #21 = Utf8               b
+  #22 = Utf8               c
+  #23 = Utf8               StackMapTable
+  #24 = Utf8               SourceFile
+  #25 = Utf8               NestedIf2.java
+  #26 = NameAndType        #10:#11        // "<init>":()V
+  #27 = Class              #37            // java/lang/System
+  #28 = NameAndType        #38:#39        // out:Ljava/io/PrintStream;
+  #29 = Utf8               starth
+  #30 = Class              #40            // java/io/PrintStream
+  #31 = NameAndType        #41:#42        // println:(Ljava/lang/String;)V
+  #32 = Utf8               a || b
+  #33 = Utf8               enda
+  #34 = Utf8               endh
+  #35 = Utf8               NestedIf2
+  #36 = Utf8               java/lang/Object
+  #37 = Utf8               java/lang/System
+  #38 = Utf8               out
+  #39 = Utf8               Ljava/io/PrintStream;
+  #40 = Utf8               java/io/PrintStream
+  #41 = Utf8               println
+  #42 = Utf8               (Ljava/lang/String;)V
+{
+  public NestedIf2();
+    descriptor: ()V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
+      LineNumberTable:
+        line 2: 0
+        line 3: 4
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0       5     0  this   LNestedIf2;
+
+  public void h(boolean, boolean, boolean);
+    descriptor: (ZZZ)V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=2, locals=4, args_size=4
+         0: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+         3: ldc           #3                  // String starth
+         5: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+         8: iload_1
+         9: ifne          16
+        12: iload_2
+        13: ifeq          32
+        16: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+        19: ldc           #5                  // String a || b
+        21: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+        24: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+        27: ldc           #6                  // String enda
+        29: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+        32: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+        35: ldc           #7                  // String endh
+        37: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+        40: return
+      LineNumberTable:
+        line 6: 0
+        line 7: 8
+        line 8: 16
+        line 9: 24
+        line 12: 32
+        line 13: 40
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      41     0  this   LNestedIf2;
+            0      41     1     a   Z
+            0      41     2     b   Z
+            0      41     3     c   Z
+      StackMapTable: number_of_entries = 2
+        frame_type = 16 /* same */
+        frame_type = 15 /* same */
+}
+SourceFile: "NestedIf2.java"

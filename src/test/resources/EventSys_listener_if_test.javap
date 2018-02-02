@@ -1,0 +1,70 @@
+Compiled from "_com_github_projectsandstone_eventsys_test_listener_MyListener_listen2$0.cai"
+public class com.github.projectsandstone.eventsys.event.generated._com_github_projectsandstone_eventsys_test_listener_MyListener_listen2$0 implements com.github.projectsandstone.eventsys.event.EventListener<com.github.projectsandstone.eventsys.test.event.MyGenericEvent<java.lang.Integer>> {
+  private final com.github.projectsandstone.eventsys.test.listener.MyListener $instance;
+    descriptor: Lcom/github/projectsandstone/eventsys/test/listener/MyListener;
+
+  public com.github.projectsandstone.eventsys.event.generated._com_github_projectsandstone_eventsys_test_listener_MyListener_listen2$0(com.github.projectsandstone.eventsys.test.listener.MyListener);
+    descriptor: (Lcom/github/projectsandstone/eventsys/test/listener/MyListener;)V
+    Code:
+       0: aload_0
+       1: invokespecial #15                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: putfield      #17                 // Field $instance:Lcom/github/projectsandstone/eventsys/test/listener/MyListener;
+       9: return
+
+  public void onEvent(com.github.projectsandstone.eventsys.event.Event, java.lang.Object);
+    descriptor: (Lcom/github/projectsandstone/eventsys/event/Event;Ljava/lang/Object;)V
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field $instance:Lcom/github/projectsandstone/eventsys/test/listener/MyListener;
+       4: aload_1
+       5: checkcast     #26                 // class com/github/projectsandstone/eventsys/test/event/MyGenericEvent
+       8: aload_1
+       9: ldc           #28                 // class java/lang/Integer
+      11: ldc           #30                 // String obj
+      13: invokeinterface #36,  3           // InterfaceMethod com/github/projectsandstone/eventsys/event/property/PropertyHolder.lookup:(Ljava/lang/Class;Ljava/lang/String;)Lcom/github/projectsandstone/eventsys/event/property/Property;
+      18: dup
+      19: ifnull        25
+      22: goto          27
+      25: pop
+      26: return
+      27: dup
+      28: ifnull        39
+      31: invokeinterface #42,  1           // InterfaceMethod com/github/projectsandstone/eventsys/event/property/GetterProperty.getValue:()Ljava/lang/Object;
+      36: goto          41
+      39: pop
+      40: return
+      41: checkcast     #28                 // class java/lang/Integer
+      44: invokevirtual #48                 // Method com/github/projectsandstone/eventsys/test/listener/MyListener.listen2:(Lcom/github/projectsandstone/eventsys/test/event/MyGenericEvent;Ljava/lang/Integer;)V
+      47: return
+
+  public com.github.projectsandstone.eventsys.event.EventPriority getPriority();
+    descriptor: ()Lcom/github/projectsandstone/eventsys/event/EventPriority;
+    Code:
+       0: getstatic     #62                 // Field com/github/projectsandstone/eventsys/event/EventPriority.NORMAL:Lcom/github/projectsandstone/eventsys/event/EventPriority;
+       3: areturn
+
+  public int getChannel();
+    descriptor: ()I
+    Code:
+       0: iconst_m1
+       1: ireturn
+
+  public boolean getIgnoreCancelled();
+    descriptor: ()Z
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  public java.lang.String toString();
+    descriptor: ()Ljava/lang/String;
+    Code:
+       0: ldc           #70                 // String GeneratedMethodListener[\"MyListener.void listen2(MyGenericEvent, Integer)\"]
+       2: areturn
+
+  static {};
+    descriptor: ()V
+    Code:
+       0: return
+}

@@ -1,2 +1,2 @@
-rootProject.name = 'CodeAPI-BytecodeReader'
-include 'CodeAPI'
+rootProject.name = 'Kores-BytecodeReader'
+include 'Kores'

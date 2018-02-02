@@ -1,0 +1,30 @@
+Compiled from "SimpleIfElse.java"
+public class SimpleIfElse {
+  public SimpleIfElse();
+    descriptor: ()V
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public void t(int);
+    descriptor: (I)V
+    Code:
+       0: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+       3: ldc           #3                  // String Out
+       5: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+       8: iload_1
+       9: iconst_5
+      10: if_icmpge     24
+      13: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+      16: ldc           #5                  // String in
+      18: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      21: goto          32
+      24: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+      27: ldc           #6                  // String else
+      29: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      32: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+      35: ldc           #7                  // String Out:pos
+      37: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      40: return
+}
